@@ -271,7 +271,7 @@ def initialize(
     symbolOverride: String[32],
     guardian: address = msg.sender,
     management: address =  msg.sender,
-    healthCheck: address = ZERO_ADDRESS
+    #healthCheck: address = ZERO_ADDRESS
 ):
     """
     @notice
@@ -298,6 +298,7 @@ def initialize(
     @param symbolOverride Specify a custom Vault symbol name. Leave empty for default choice.
     @param guardian The address authorized for guardian interactions. Defaults to caller.
     """
+    
     assert self.activation == 0  # dev: no devops199
     self.token = ERC20(token)
     if nameOverride == "":
@@ -324,8 +325,8 @@ def initialize(
     log UpdatePerformanceFee(convert(1000, uint256))
     self.managementFee = 200  # 2% per year
     log UpdateManagementFee(convert(200, uint256))
-    self.healthCheck = healthCheck
-    log UpdateHealthCheck(healthCheck)
+    #self.healthCheck = healthCheck
+    #log UpdateHealthCheck(healthCheck)
 
     self.lastReport = block.timestamp
     self.activation = block.timestamp
