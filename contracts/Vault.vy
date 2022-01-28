@@ -1,11 +1,11 @@
 # @version 0.3.1
 """
-@title Yearn Token Vault
+@title CNC Token Vault
 @license GNU AGPLv3
-@author yearn.finance
+@author Schlagonia, yearn.finance
 @notice
-    Yearn Token Vault. Holds an underlying token, and allows users to interact
-    with the Yearn ecosystem through Strategies connected to the Vault.
+    CNC Token Vault. Holds an underlying token, and allows users to interact
+    with the CNC ecosystem through Strategies connected to the Vault.
     Vaults are not limited to a single Strategy, they can have as many Strategies
     as can be designed (however the withdrawal queue is capped at 20.)
 
@@ -219,9 +219,6 @@ event UpdateHealthCheck:
 strategies: public(HashMap[address, StrategyParams])
 MAXIMUM_STRATEGIES: constant(uint256) = 20
 DEGRADATION_COEFFICIENT: constant(uint256) = 10 ** 18
-# SET_SIZE can be any number but having it in power of 2 will be more gas friendly and collision free.
-# Note: Make sure SET_SIZE is greater than MAXIMUM_STRATEGIES
-SET_SIZE: constant(uint256) = 32
 
 # Ordering that `withdraw` uses to determine which strategies to pull funds from
 # NOTE: Does *NOT* have to match the ordering of all the current strategies that
@@ -271,7 +268,7 @@ def initialize(
     symbolOverride: String[32],
     guardian: address = msg.sender,
     management: address =  msg.sender,
-    #healthCheck: address = ZERO_ADDRESS
+    healthCheck: address = ZERO_ADDRESS
 ):
     """
     @notice
@@ -282,10 +279,10 @@ def initialize(
         The initial deposit limit is set to 0 (deposits disabled); it must be
         updated after initialization.
     @dev
-        If `nameOverride` is not specified, the name will be 'yearn'
+        If `nameOverride` is not specified, the name will be 'CNC'
         combined with the name of `token`.
 
-        If `symbolOverride` is not specified, the symbol will be 'yv'
+        If `symbolOverride` is not specified, the symbol will be 'cv'
         combined with the symbol of `token`.
 
         The token used by the vault should not change balances outside transfers and
@@ -302,7 +299,7 @@ def initialize(
     assert self.activation == 0  # dev: no devops199
     self.token = ERC20(token)
     if nameOverride == "":
-        self.name = concat(DetailedERC20(token).symbol(), " yVault")
+        self.name = concat(DetailedERC20(token).symbol(), "cVault")
     else:
         self.name = nameOverride
     if symbolOverride == "":
@@ -325,8 +322,8 @@ def initialize(
     log UpdatePerformanceFee(convert(1000, uint256))
     self.managementFee = 200  # 2% per year
     log UpdateManagementFee(convert(200, uint256))
-    #self.healthCheck = healthCheck
-    #log UpdateHealthCheck(healthCheck)
+    self.healthCheck = healthCheck
+    log UpdateHealthCheck(healthCheck)
 
     self.lastReport = block.timestamp
     self.activation = block.timestamp
@@ -335,7 +332,7 @@ def initialize(
     self.DOMAIN_SEPARATOR = keccak256(
         concat(
             DOMAIN_TYPE_HASH,
-            keccak256(convert("Yearn Vault", Bytes[11])),
+            keccak256(convert("CNC Vault", Bytes[11])),
             keccak256(convert(API_VERSION, Bytes[28])),
             convert(chain.id, bytes32),
             convert(self, bytes32)
@@ -590,31 +587,36 @@ def setWithdrawalQueue(queue: address[MAXIMUM_STRATEGIES]):
     """
     assert msg.sender in [self.management, self.governance]
 
-    set: address[SET_SIZE] = empty(address[SET_SIZE])
+    # HACK: Temporary until Vyper adds support for Dynamic arrays
+    old_queue: address[MAXIMUM_STRATEGIES] = empty(address[MAXIMUM_STRATEGIES])
     for i in range(MAXIMUM_STRATEGIES):
+        old_queue[i] = self.withdrawalQueue[i]
         if queue[i] == ZERO_ADDRESS:
             # NOTE: Cannot use this method to remove entries from the queue
-            assert self.withdrawalQueue[i] == ZERO_ADDRESS
+            assert old_queue[i] == ZERO_ADDRESS
             break
         # NOTE: Cannot use this method to add more entries to the queue
-        assert self.withdrawalQueue[i] != ZERO_ADDRESS
+        assert old_queue[i] != ZERO_ADDRESS
 
         assert self.strategies[queue[i]].activation > 0
 
-        # NOTE: `key` is first `log_2(SET_SIZE)` bits of address (which is a hash)
-        key: uint256 = bitwise_and(convert(queue[i], uint256), SET_SIZE - 1)
-        # Most of the times following for loop only run once which is making it highly gas efficient
-        # but in the worst case of key collision it will run linearly and find first empty slot in the set.
-        for j in range(SET_SIZE):
-            # NOTE: we can always find space by treating set as circular (as long as `SET_SIZE >= MAXIMUM_STRATEGIES`)
-            idx: uint256 = (key + j) % SET_SIZE
-            assert set[idx] != queue[i]  # dev: duplicate in set
-            if set[idx] == ZERO_ADDRESS:
-                set[idx] = queue[i]
+        existsInOldQueue: bool = False
+        for j in range(MAXIMUM_STRATEGIES):
+            if queue[j] == ZERO_ADDRESS:
+                existsInOldQueue = True
                 break
+            if queue[i] == old_queue[j]:
+                # NOTE: Ensure that every entry in queue prior to reordering exists now
+                existsInOldQueue = True
+
+            if j <= i:
+                # NOTE: This will only check for duplicate entries in queue after `i`
+                continue
+            assert queue[i] != queue[j]  # dev: do not add duplicate strategies
+
+        assert existsInOldQueue # dev: do not add new strategies
 
         self.withdrawalQueue[i] = queue[i]
-
     log UpdateWithdrawalQueue(queue)
 
 
@@ -1193,8 +1195,6 @@ def addStrategy(
     minDebtPerHarvest: uint256,
     maxDebtPerHarvest: uint256,
     performanceFee: uint256,
-    profitLimitRatio: uint256 = 100, # 1%
-    lossLimitRatio: uint256 = 1 # 0.01%
 ):
     """
     @notice

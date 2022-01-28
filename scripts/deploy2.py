@@ -1,21 +1,28 @@
+#Deployment script for Vault without a Registry
 from pathlib import Path
 import yaml
 import click
 
 from brownie import Token, Vault, Registry, accounts, network, web3
-from brownie.network.gas.strategies import GasNowScalingStrategy
+from brownie.network.gas.strategies import LinearScalingStrategy
 from eth_utils import is_checksum_address
 from semantic_version import Version
 
 
-DEFAULT_VAULT_NAME = lambda token: f"{token.symbol()} yVault"
-DEFAULT_VAULT_SYMBOL = lambda token: f"yv{token.symbol()}"
+DEFAULT_VAULT_NAME = lambda token: f"{token.symbol()} cVault"
+DEFAULT_VAULT_SYMBOL = lambda token: f"cv{token.symbol()}"
 
-# create a random account that will deploy the vault
-# acct = accounts.add();
-acct = accounts.add('0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80')
-gas_price = 103628712501
-#gas_price = GasNowScalingStrategy()
+#Variables
+acct = accounts.add('Priv Key')
+gas_strategy = LinearScalingStrategy("30 gwei", "50 gwei", 1.1)
+#gas_price = 103628712501
+#Deposit limit for vault
+#1M in usdc.e
+limit = 1000000000000
+
+param = { 'from': acct, 'gas_price': gas_strategy }
+
+usdce = '0xA7D7079b0FEaD91F3e65f86E8915Cb59c1a4C664'
 
 PACKAGE_VERSION = yaml.safe_load(
     (Path(__file__).parent.parent / "ethpm-config.yaml").read_text()
@@ -47,38 +54,17 @@ def main():
     #dev = accounts.load(click.prompt("Account", type=click.Choice(accounts.load())))
     click.echo(f"You are using: 'dev' [{dev.address}]")
     
-   
-    #deploy Registry contract
-    reg = Registry.deploy( { 'from': dev, 'gas_price': gas_price})
-    registry = Registry.at(reg.address)
-    click.echo(f"Registry Deployed at [{reg.address}]")
-    #registry.newRelease()
-
-    #registry = Registry.at(
-    #    get_address("Vault Registry", default="v2.registry.ychad.eth")
-    #)
-    
-    
     use_proxy = False  # NOTE: Use a proxy to save on gas for experimental Vaults
-    
-    if click.confirm("Deploy a Proxy Vault", default="Y"):
-            use_proxy = True
     
     token = Token.at(get_address("ERC20 Token"))
 
-    if use_proxy:
-        gov_default = (
-            "0x16388463d60FFE0661Cf7F1f31a7D658aC790ff7"  # strategist msig, no ENS
-        )
-    else:
-        gov_default = "ychad.eth"
-    gov = get_address("Yearn Governance", default=gov_default)
+    gov = get_address("CNC Governance", default=dev)
 
-    rewards = get_address("Rewards contract", default="treasury.ychad.eth")
+    rewards = get_address("Rewards contract", default=dev)
     guardian = gov
     if use_proxy == False:
-        guardian = get_address("Vault Guardian", default="dev.ychad.eth")
-    management = get_address("Vault Management", default="ychad.eth")
+        guardian = get_address("Vault Guardian", default=dev)
+    management = get_address("Vault Management", default=dev)
     name = click.prompt(f"Set description", default=DEFAULT_VAULT_NAME(token))
     symbol = click.prompt(f"Set symbol", default=DEFAULT_VAULT_SYMBOL(token))
     
@@ -107,23 +93,16 @@ def main():
             name if name != DEFAULT_VAULT_NAME(token) else "",
             symbol if symbol != DEFAULT_VAULT_SYMBOL(token) else "",
         ]
-        if use_proxy:
-            # NOTE: Must always include guardian, even if default
-            args.insert(2, guardian)
-            
-            txn_receipt = registry.newExperimentalVault(*args, {"from": dev, "gas_price": gas_price})
-            click.echo(txn_receipt.error())
-            vault = Vault.at(txn_receipt.events["NewExperimentalVault"]["vault"])
-            click.echo(f"Experimental Vault deployed [{vault.address}]")
-            click.echo("    NOTE: Vault is not registered in Registry!")
-        else:
-            args.append(guardian)
-            args.append(management)
-            vault = Vault.deploy({ 'from': dev, 'gas_price': gas_price })
-            #vault = dev.deploy(Vault,{"gas_price": gas_price})
-    
-            vault.initialize(*args, { 'from': dev, 'gas_price': gas_price })
-            click.echo(f"New Vault Release deployed [{vault.address}]")
-            click.echo(
-                "    NOTE: Vault is not registered in Registry, please register!"
-            )
+        
+        args.append(guardian)
+        args.append(management)
+        vault = Vault.deploy( param )
+        #vault = dev.deploy(Vault,{"gas_price": gas_price})
+
+        init = vault.initialize(*args, param )
+        click.echo(f"New Vault Release deployed [{vault.address}]")
+        
+        vault.setDepositLimit(limit, param)
+        click.echo(f"Deposit limit sent to: [{limit}]")
+
+
