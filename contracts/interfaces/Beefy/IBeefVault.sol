@@ -10,6 +10,8 @@ interface IBeefVault {
     function approve(address spender, uint256 amount) external returns (bool);
 
     function transfer(address recipient, uint256 amount) external returns (bool);
+
+    function decimals() external returns(uint256);
     
 
     //Functions to deposit and withdraw the underlying asset from the vault

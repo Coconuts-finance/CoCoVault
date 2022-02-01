@@ -16,22 +16,33 @@ usdc = Token.at('0xA7D7079b0FEaD91F3e65f86E8915Cb59c1a4C664')
 
 param = { 'from': acct, 'gas_price': gas_strategy }
 
+def get_address(msg: str) -> str:
+    while True:
+        val = input(msg)
+        if is_checksum_address(val):
+            return val
+        else:
+            addr = web3.ens.address(val)
+            if addr:
+                print(f"Found ENS '{val}' [{addr}]")
+                return addr
+        print(f"I'm sorry, but '{val}' is not a checksummed address or ENS")
+
+
 def main():
     print(f"You are using the '{network.show_active()}' network")
     #dev = accounts.load(click.prompt("Account", type=click.Choice(accounts.load())))
     dev = acct
     print(f"You are using: 'dev' [{dev.address}]")
 
-    usdc.approve(vault.address, 100000000000, param)
-
-    vault.deposit(70000000, param);
-    print('Deposited into vault. Current acct cv balance: ', vault.balanceOf(acct.address))
-
-
-    tx = beef.harvest(param)
-    
+    shares = vault.balanceOf(acct.address)
     print('Vault USDC balance: ', usdc.balanceOf(vault.address))
     print('Strategy usdc balance: ', usdc.balanceOf(beef.address))
     print('Acct usdc: ', usdc.balanceOf(acct.address))
     print('Account cvUSDC: ', vault.balanceOf(acct.address))
-    
+    tx = vault.withdraw(shares, param);
+    print('Funds withdrawn')
+    print('Vault USDC balance: ', usdc.balanceOf(vault.address))
+    print('Strategy usdc balance: ', usdc.balanceOf(beef.address))
+    print('Acct usdc: ', usdc.balanceOf(acct.address))
+    print('Account cvUSDC: ', vault.balanceOf(acct.address))

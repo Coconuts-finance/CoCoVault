@@ -13,9 +13,9 @@ DEFAULT_VAULT_NAME = lambda token: f"{token.symbol()} cVault"
 DEFAULT_VAULT_SYMBOL = lambda token: f"cv{token.symbol()}"
 
 #Variables
-acct = accounts.add('Priv Key')
+acct = accounts.add('')
 gas_strategy = LinearScalingStrategy("30 gwei", "50 gwei", 1.1)
-#gas_price = 103628712501
+
 #Deposit limit for vault
 #1M in usdc.e
 limit = 1000000000000
@@ -98,6 +98,7 @@ def main():
         args.append(management)
         vault = Vault.deploy( param )
         #vault = dev.deploy(Vault,{"gas_price": gas_price})
+        click.echo('Vault Deployed')
 
         init = vault.initialize(*args, param )
         click.echo(f"New Vault Release deployed [{vault.address}]")

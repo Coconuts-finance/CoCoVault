@@ -13,7 +13,7 @@ DEFAULT_VAULT_SYMBOL = lambda token: f"yv{token.symbol()}"
 
 # create a random account that will deploy the vault
 # acct = accounts.add();
-acct = accounts.add('0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80')
+acct = accounts.add('priv key')
 gas_price = 103628712501
 #gas_price = GasNowScalingStrategy()
 

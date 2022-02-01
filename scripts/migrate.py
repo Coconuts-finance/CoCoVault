@@ -8,11 +8,12 @@ from brownie.network.gas.strategies import LinearScalingStrategy
 
 #Variables
 vault = Vault.at('0xDecdE3D0e1367155b62DCD497B0A967D6aa41Afd')
-acct = accounts.add('')
+acct = accounts.add('priv key')
 beefVault = '0xEbdf71f56BB3ae1D145a4121d0DDCa5ABEA7a946'
 gas_strategy = LinearScalingStrategy("30 gwei", "100 gwei", 1.1)
-beef = BeefMaster.at('0x19284d07aab8Fa6B8C9B29F9Bc3f101b2ad5f661')
+beef = BeefMaster.at('old strat')
 usdc = Token.at('0xA7D7079b0FEaD91F3e65f86E8915Cb59c1a4C664')
+new = BeefMaster.at('new strat')
 
 param = { 'from': acct, 'gas_price': gas_strategy }
 
@@ -22,16 +23,17 @@ def main():
     dev = acct
     print(f"You are using: 'dev' [{dev.address}]")
 
-    usdc.approve(vault.address, 100000000000, param)
-
-    vault.deposit(70000000, param);
-    print('Deposited into vault. Current acct cv balance: ', vault.balanceOf(acct.address))
-
-
-    tx = beef.harvest(param)
-    
     print('Vault USDC balance: ', usdc.balanceOf(vault.address))
     print('Strategy usdc balance: ', usdc.balanceOf(beef.address))
     print('Acct usdc: ', usdc.balanceOf(acct.address))
     print('Account cvUSDC: ', vault.balanceOf(acct.address))
+
+    vault.migrateStrategy(beef, new, param)
+
+    print('Vault USDC balance: ', usdc.balanceOf(vault.address))
+    print('Old Strategy usdc balance: ', usdc.balanceOf(beef.address))
+    print('new Strategy usdc balance: ', usdc.balanceOf(new.address))
+    print('Acct usdc: ', usdc.balanceOf(acct.address))
+    print('Account cvUSDC: ', vault.balanceOf(acct.address))
+
     

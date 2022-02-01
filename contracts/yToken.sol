@@ -34,11 +34,11 @@ contract yToken is IERC20, BaseWrapper {
     constructor(address _token, address _registry) public BaseWrapper(_token, _registry) {}
 
     function name() external view returns (string memory) {
-        return string(abi.encodePacked("Yearn ", IERC20Metadata(address(token)).name()));
+        return string(abi.encodePacked("Coconuts ", IERC20Metadata(address(token)).name()));
     }
 
     function symbol() external view returns (string memory) {
-        return string(abi.encodePacked("y", IERC20Metadata(address(token)).symbol()));
+        return string(abi.encodePacked("c", IERC20Metadata(address(token)).symbol()));
     }
 
     function decimals() external view returns (uint256) {

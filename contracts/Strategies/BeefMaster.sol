@@ -3,11 +3,15 @@ pragma solidity ^0.6.12;
 pragma experimental ABIEncoderV2;
 
 // These are the core Yearn libraries
-import { BaseStrategy, StrategyParams } from "./BaseStrategy.sol";
+//import { BaseStrategy, StrategyParams } from "./BaseStrategy.sol";
+import {
+    BaseStrategy,
+    StrategyParams
+} from "../BaseStrategy.sol";
 import { SafeERC20, SafeMath, IERC20, Address } from "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 
 // Import interfaces for many popular DeFi projects, or add your own!
-import { IBeefVault } from './interfaces/IBeefVault.sol';
+import { IBeefVault } from '../interfaces//Beefy/IBeefVault.sol';
 
 //3. Swap for lP tokens
 
@@ -17,48 +21,78 @@ contract BeefMaster is BaseStrategy {
     using SafeMath for uint256;
 
     IBeefVault public BeefVault;
+    uint256 decimals;
+    uint256 decimalDiff;
+    uint256 wantDecimals = 6;
+
+    //for calculating profit without harvest
+    uint256 lastPPS = 0;
 
     constructor(address _vault, address _beefVault) public BaseStrategy(_vault) {
         // Instantiate vault
-        BeefVault = IBeefVault(_beefVault);
-        //approve vault to save gas
-        want.safeApprove(_beefVault, type(uint256).max);
-        profitFactor = 100;
-        debtThreshold = 0;
+        setVault(_beefVault);
     }
 
     // ******** OVERRIDE THESE METHODS FROM BASE CONTRACT ************
 
     function name() external view override returns (string memory) {
         // Add your own name here, suggestion e.g. "StrategyCreamYFI"
-        return "GroundBeefBrigade";
+        return "Ground Beef Brigade";
     }
 
-    function changeVault(address _vault) external onlyStrategist {
+    function changeVault(address _vault) public onlyStrategist {
         require(_vault != address(BeefVault), 'Cant change to same vault');
 
         want.safeDecreaseAllowance(address(BeefVault), type(uint256).max);
+
+        setVault(_vault);   
+    }
+
+    function setVault(address _vault) internal {
+        
         BeefVault = IBeefVault(_vault);
+        decimals = BeefVault.decimals();
+        decimalDifference(decimals);
+        lastPPS = BeefVault.getPricePerFullShare();
         want.safeApprove(_vault, type(uint256).max);
+    }
+
+    function decimalDifference(uint256 _decimals) internal returns(uint256) {
+        uint256 diff = _decimals.sub(wantDecimals);
+        decimalDiff = 1;
+
+        if(diff > 0) {
+            for(uint i = 0; i < diff; i ++) {
+                decimalDiff.mul(10);
+            }
+        }
+    }
+
+    function toWant(uint256 _shares) internal view returns (uint256) {
+        return BeefVault.getPricePerFullShare().mul(_shares).div(1e18);
+    }   
+
+    function toWantPPS(uint256 _shares,uint256 _pps) internal view returns (uint256) {
+        return _pps.mul(_shares).div(1e18);
     }
 
     function balanceOfWant() public view returns (uint256) {
         return want.balanceOf(address(this));
     }
 
-    //returns balance of unerlying asset
+    //returns balance of shares
     function balanceOfVault() public view returns (uint256) {
-        return BeefVault.getPricePerFullShare().mul(BeefVault.balanceOf(address(this)));
+        return BeefVault.balanceOf(address(this));
     }
 
     function estimatedTotalAssets() public view override returns (uint256) {
-        return balanceOfVault().add(balanceOfWant());
+        return toWant(balanceOfVault()).add(balanceOfWant());
     }
 
     //takes underlying and converts it to Beef Vault share price for withdraw
     //@param _amount The amount in the underlying asset needed 
     function toShares(uint256 _amount) internal view returns (uint256) {
-        return _amount.div(BeefVault.getPricePerFullShare());
+        return _amount.mul(1e18).div(BeefVault.getPricePerFullShare());
     }
 
     function prepareReturn(uint256 _debtOutstanding)
@@ -70,8 +104,24 @@ contract BeefMaster is BaseStrategy {
             uint256 _debtPayment
         )
     {
-        _profit = estimatedTotalAssets();
-        _debtPayment = vault.strategies(address(this)).totalDebt;
+        //retrun just profit due to stable coin vault with no harvesting needed
+        uint256 prev = toWantPPS(balanceOfVault(), lastPPS);
+        uint256 current = toWant(balanceOfVault());
+        lastPPS = BeefVault.getPricePerFullShare();
+
+       if(current > prev) { 
+            _profit = current.sub(prev);
+            uint256 bal = balanceOfWant();
+            if(_profit > bal) {
+                uint256 diff = _profit.sub(bal);
+                (uint256 _liquidatedAmount, uint256 _lost) = liquidatePosition(diff);
+
+                _profit = balanceOfWant();
+            }
+       } else {
+           _loss = prev.sub(current);
+       }
+
     }
 
     //invests available tokens
@@ -95,7 +145,7 @@ contract BeefMaster is BaseStrategy {
     {
         //check what we have available
         uint256 wantBalance = balanceOfWant();
-        uint256 deposited = balanceOfVault();
+        uint256 deposited = toWant(balanceOfVault());
         if (_amountNeeded > wantBalance) {
             //if we need more than avaialble find out how much
             uint256 amountToFree = _amountNeeded.sub(wantBalance);
