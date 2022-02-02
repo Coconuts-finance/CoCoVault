@@ -1,7 +1,7 @@
 from pathlib import Path
 import click
 
-from brownie import Vault, BeefMaster, StrategyLib, accounts, config, network, project, web3
+from brownie import Vault, BeefMaster, YakAttack, StrategyLib, accounts, config, network, project, web3
 from eth_utils import is_checksum_address
 from brownie.network.gas.strategies import LinearScalingStrategy
 
@@ -14,8 +14,12 @@ Vault = project.load(
 """
 #Variables
 vault = Vault.at('0xDecdE3D0e1367155b62DCD497B0A967D6aa41Afd')
-acct = accounts.add('priv key')
+lib = StrategyLib.at('0xDB5f0fcfb3428B3e256E4a8e36Af9457866b6e7d')
+acct = accounts.add('')
 beefVault = '0xEbdf71f56BB3ae1D145a4121d0DDCa5ABEA7a946'
+beef = BeefMaster.at('0x19284d07aab8Fa6B8C9B29F9Bc3f101b2ad5f661')
+yakFarm = '0xf5Ac502C3662c07489662dE5f0e127799D715E1E'
+
 gas_strategy = LinearScalingStrategy("30 gwei", "100 gwei", 1.1)
 
 
@@ -46,14 +50,17 @@ def main():
     if input("Deploy Strategy? y/[N]: ").lower() != "y":
         return
 
-    lib = StrategyLib.deploy( param )
-    print('Library deployed to ', lib.address )
-    strategy = BeefMaster.deploy(vault, beefVault, param)
+    #lib = StrategyLib.deploy( param )
+    #print('Library deployed to ', lib.address )
+    strategy = YakAttack.deploy(vault, yakFarm, param)
 
     print("Strategy Deployed: ", strategy.address)
 
+    #Adjust the debt ratio in order to add new strat
+    vault.updateStrategyDebtRatio(beef.address, 4900, param)
+
     strategy = strategy.address       # Your strategy address
-    debt_ratio = 9800                 # 98%
+    debt_ratio = 4900                 # 98%
     minDebtPerHarvest = 0             # Lower limit on debt add
     maxDebtPerHarvest = 2 ** 256 - 1  # Upper limit on debt add
     performance_fee = 1000            # Strategist perf fee: 10%

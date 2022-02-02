@@ -19,14 +19,14 @@ contract YakAttack is BaseStrategy {
     using SafeMath for uint256;
 
     IYakFarm public YakFarm;
+    
+    //for calculating profit without harvest
+    uint256 lastPPS = 0;
+    uint256 lastShares = 0;
 
     constructor(address _vault, address _yakFarm) public BaseStrategy(_vault) {
         // Instantiate vault
-        YakFarm = IYakFarm(_yakFarm);
-        //approve vault to save gas
-        want.safeApprove(_yakFarm, type(uint256).max);
-        profitFactor = 100;
-        debtThreshold = 0;
+        setVault(_yakFarm);
     }
 
     // ******** OVERRIDE THESE METHODS FROM BASE CONTRACT ************
@@ -36,12 +36,35 @@ contract YakAttack is BaseStrategy {
         return "YakAttack";
     }
 
-    function changeVault(address _vault) external onlyStrategist {
+    function changeVault(address _vault) public onlyStrategist {
         require(_vault != address(YakFarm), 'Cant change to same vault');
 
         want.safeDecreaseAllowance(address(YakFarm), type(uint256).max);
+
+        setVault(_vault);   
+    }
+
+    function setVault(address _vault) internal {
+        
         YakFarm = IYakFarm(_vault);
+        
+        lastPPS = toWant(1000000);
+        lastShares = balanceOfVault();
         want.safeApprove(_vault, type(uint256).max);
+    }
+
+    function toWant(uint256 _shares) internal view returns (uint256) {
+        return YakFarm.getDepositTokensForShares(_shares);
+    }
+
+    function toWantPPS(uint256 _shares, uint256 _pps) public view returns (uint256) {
+        return _pps.mul(_shares).div(1e18);
+    }
+
+    //takes underlying and converts it to Beef Vault share price for withdraw
+    //@param _amount The amount in the underlying asset needed 
+    function toShares(uint256 _amount) internal view returns (uint256) {
+        return YakFarm.getSharesForDepositTokens(_amount);
     }
 
     function balanceOfWant() public view returns (uint256) {
@@ -55,7 +78,7 @@ contract YakAttack is BaseStrategy {
     }
 
     function estimatedTotalAssets() public view override returns (uint256) {
-        return balanceOfVault().add(balanceOfWant());
+        return toWant(balanceOfVault()).add(balanceOfWant());
     }
 
     function prepareReturn(uint256 _debtOutstanding)
@@ -67,8 +90,36 @@ contract YakAttack is BaseStrategy {
             uint256 _debtPayment
         )
     {
-        _profit = estimatedTotalAssets();
-        _debtPayment = vault.strategies(address(this)).totalDebt;
+        //retrun just profit due to stable coin vault with no harvesting needed
+        uint256 shares = balanceOfVault();
+        uint256 pps = toWant(1000000);
+        uint256 prev;
+        uint256 current;
+
+        if(shares > lastShares) {
+            prev = toWantPPS(lastShares, lastPPS);
+            current = toWantPPS(lastShares, pps);
+        } else {
+            prev = toWantPPS(shares, lastPPS);
+            current = toWantPPS(shares, pps);
+        }
+
+        if(current > prev) {
+            _profit = current.sub(prev);
+            uint256 bal = balanceOfWant();
+            if(_profit > bal) {
+                uint256 diff = _profit.sub(bal);
+                (uint256 _liquidatedAmount, uint256 _lost) = liquidatePosition(diff);
+
+                _profit = balanceOfWant();
+            }
+       } else {
+           _loss = prev.sub(current);
+       }
+
+       lastPPS = pps;
+       lastShares = shares;
+
     }
 
     //invests available tokens
@@ -90,9 +141,9 @@ contract YakAttack is BaseStrategy {
         override
         returns (uint256 _liquidatedAmount, uint256 _loss)
     {
-        //check what we have available
+       //check what we have available
         uint256 wantBalance = balanceOfWant();
-        uint256 deposited = balanceOfVault();
+        uint256 deposited = toWant(balanceOfVault());
         if (_amountNeeded > wantBalance) {
             //if we need more than avaialble find out how much
             uint256 amountToFree = _amountNeeded.sub(wantBalance);
@@ -102,7 +153,7 @@ contract YakAttack is BaseStrategy {
                 amountToFree = deposited;
             }
             //withdraw what is needed
-            YakFarm.withdraw(amountToFree);
+            YakFarm.withdraw(toShares(amountToFree));
 
             //recheck balance of free tokens
             wantBalance = balanceOfWant();

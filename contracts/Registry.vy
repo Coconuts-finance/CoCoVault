@@ -1,6 +1,5 @@
 # @version 0.3.1
 
-
 interface Vault:
     def token() -> address: view
     def apiVersion() -> String[28]: view
