@@ -4,14 +4,11 @@ pragma experimental ABIEncoderV2;
 
 // These are the core Yearn libraries
 //import { BaseStrategy, StrategyParams } from "./BaseStrategy.sol";
-import {
-    BaseStrategy,
-    StrategyParams
-} from "../BaseStrategy.sol";
-import { SafeERC20, SafeMath, IERC20, Address } from "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
+import {BaseStrategy, StrategyParams} from "../BaseStrategy.sol";
+import {SafeERC20, SafeMath, IERC20, Address} from "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 
 // Import interfaces for many popular DeFi projects, or add your own!
-import { IYakFarm } from '../interfaces/YieldYak/IYakFarm.sol';
+import {IYakFarm} from "../interfaces/YieldYak/IYakFarm.sol";
 
 contract YakAttack is BaseStrategy {
     using SafeERC20 for IERC20;
@@ -19,7 +16,7 @@ contract YakAttack is BaseStrategy {
     using SafeMath for uint256;
 
     IYakFarm public YakFarm;
-    
+
     //for calculating profit without harvest
     uint256 lastPPS = 0;
     uint256 lastShares = 0;
@@ -37,32 +34,31 @@ contract YakAttack is BaseStrategy {
     }
 
     function changeVault(address _vault) public onlyStrategist {
-        require(_vault != address(YakFarm), 'Cant change to same vault');
+        require(_vault != address(YakFarm), "Cant change to same vault");
 
         want.safeDecreaseAllowance(address(YakFarm), type(uint256).max);
 
-        setVault(_vault);   
+        setVault(_vault);
     }
 
     function setVault(address _vault) internal {
-        
         YakFarm = IYakFarm(_vault);
-        
+
         lastPPS = toWant(1000000);
         lastShares = balanceOfVault();
         want.safeApprove(_vault, type(uint256).max);
     }
 
-    function toWant(uint256 _shares) internal view returns (uint256) {
+    function toWant(uint256 _shares) public view returns (uint256) {
         return YakFarm.getDepositTokensForShares(_shares);
     }
 
     function toWantPPS(uint256 _shares, uint256 _pps) public view returns (uint256) {
-        return _pps.mul(_shares).div(1e18);
+        return _pps.mul(_shares).div(1e6);
     }
 
     //takes underlying and converts it to Beef Vault share price for withdraw
-    //@param _amount The amount in the underlying asset needed 
+    //@param _amount The amount in the underlying asset needed
     function toShares(uint256 _amount) internal view returns (uint256) {
         return YakFarm.getSharesForDepositTokens(_amount);
     }
@@ -96,30 +92,30 @@ contract YakAttack is BaseStrategy {
         uint256 prev;
         uint256 current;
 
-        if(shares > lastShares) {
+        if (shares >= lastShares) {
             prev = toWantPPS(lastShares, lastPPS);
-            current = toWantPPS(lastShares, pps);
+            current = toWant(lastShares);
         } else {
             prev = toWantPPS(shares, lastPPS);
-            current = toWantPPS(shares, pps);
+            current = toWant(shares);
         }
 
-        if(current > prev) {
+
+        if (current > prev) {
             _profit = current.sub(prev);
             uint256 bal = balanceOfWant();
-            if(_profit > bal) {
+            if (_profit > bal) {
                 uint256 diff = _profit.sub(bal);
                 (uint256 _liquidatedAmount, uint256 _lost) = liquidatePosition(diff);
 
                 _profit = balanceOfWant();
             }
-       } else {
-           _loss = prev.sub(current);
-       }
+        } else {
+            _loss = prev.sub(current);
+        }
 
-       lastPPS = pps;
-       lastShares = shares;
-
+        lastPPS = pps;
+        lastShares = shares;
     }
 
     //invests available tokens
@@ -131,17 +127,12 @@ contract YakAttack is BaseStrategy {
         uint256 toInvest = balanceOfWant();
         // stake only if we have something to stake
         if (toInvest > 0) {
-
             YakFarm.deposit(toInvest);
         }
     }
 
-    function liquidatePosition(uint256 _amountNeeded)
-        internal
-        override
-        returns (uint256 _liquidatedAmount, uint256 _loss)
-    {
-       //check what we have available
+    function liquidatePosition(uint256 _amountNeeded) internal override returns (uint256 _liquidatedAmount, uint256 _loss) {
+        //check what we have available
         uint256 wantBalance = balanceOfWant();
         uint256 deposited = toWant(balanceOfVault());
         if (_amountNeeded > wantBalance) {
@@ -161,11 +152,10 @@ contract YakAttack is BaseStrategy {
             //check if we got enough tokens from the withdraw
             if (wantBalance >= _amountNeeded) {
                 _liquidatedAmount = _amountNeeded;
-
             } else {
                 _liquidatedAmount = wantBalance;
                 _loss = _amountNeeded.sub(wantBalance);
-        }
+            }
 
             //if we have enough free tokens to start with
         } else {
@@ -183,18 +173,12 @@ contract YakAttack is BaseStrategy {
 
     function prepareMigration(address _newStrategy) internal override {
         YakFarm.withdraw(balanceOfVault());
-
     }
 
-    function protectedTokens()
-        internal
-        view
-        override
-        returns (address[] memory)
-    {
+    function protectedTokens() internal view override returns (address[] memory) {
         address[] memory protected = new address[](1);
-        protected[0] = address(YakFarm); 
-        
+        protected[0] = address(YakFarm);
+
         return protected;
     }
 
@@ -212,13 +196,7 @@ contract YakAttack is BaseStrategy {
      * @param _amtInWei The amount (in wei/1e-18 ETH) to convert to `want`
      * @return The amount in `want` of `_amtInEth` converted to `want`
      **/
-    function ethToWant(uint256 _amtInWei)
-        public
-        view
-        virtual
-        override
-        returns (uint256)
-    {
+    function ethToWant(uint256 _amtInWei) public view virtual override returns (uint256) {
         // TODO create an accurate price oracle
         return _amtInWei;
     }

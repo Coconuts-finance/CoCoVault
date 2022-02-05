@@ -1,30 +1,23 @@
 from pathlib import Path
 import click
 
-from brownie import Vault, BeefMaster, YakAttack, StrategyLib, accounts, config, network, project, web3
+from brownie import Vault, BeefMaster, YakAttack, StrategyLib, Token, accounts, config, network, project, web3
 from eth_utils import is_checksum_address
 from brownie.network.gas.strategies import LinearScalingStrategy
 
-
-API_VERSION = config["dependencies"][0].split("@")[-1]
-"""
-Vault = project.load(
-    Path.home() / ".brownie" / "packages" / config["dependencies"][0]
-).Vault
-"""
 #Variables
 vault = Vault.at('0xDecdE3D0e1367155b62DCD497B0A967D6aa41Afd')
 lib = StrategyLib.at('0xDB5f0fcfb3428B3e256E4a8e36Af9457866b6e7d')
-acct = accounts.add('')
+acct = accounts.add('Priv Key')
 beefVault = '0xEbdf71f56BB3ae1D145a4121d0DDCa5ABEA7a946'
 beef = BeefMaster.at('0x19284d07aab8Fa6B8C9B29F9Bc3f101b2ad5f661')
 yakFarm = '0xf5Ac502C3662c07489662dE5f0e127799D715E1E'
 
+usdc = Token.at('0xA7D7079b0FEaD91F3e65f86E8915Cb59c1a4C664')
+
 gas_strategy = LinearScalingStrategy("30 gwei", "100 gwei", 1.1)
 
-
 param = { 'from': acct, 'gas_price': gas_strategy }
-
 
 def main():
     print(f"You are using the '{network.show_active()}' network")
@@ -40,7 +33,7 @@ def main():
     print(
         f"""
     Strategy Parameters
-       api: {API_VERSION}
+     
      token: {vault.token()}
       name: '{vault.name()}'
     symbol: '{vault.symbol()}'
@@ -55,6 +48,7 @@ def main():
     strategy = YakAttack.deploy(vault, yakFarm, param)
 
     print("Strategy Deployed: ", strategy.address)
+
 
     #Adjust the debt ratio in order to add new strat
     vault.updateStrategyDebtRatio(beef.address, 4900, param)
@@ -75,3 +69,4 @@ def main():
     )
 
     print('Strategy added to Vault')
+

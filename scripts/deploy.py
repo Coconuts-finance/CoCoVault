@@ -3,7 +3,7 @@ import yaml
 import click
 
 from brownie import Token, Vault, Registry, accounts, network, web3
-from brownie.network.gas.strategies import GasNowScalingStrategy
+from brownie.network.gas.strategies import LinearScalingStrategy
 from eth_utils import is_checksum_address
 from semantic_version import Version
 
@@ -11,13 +11,11 @@ from semantic_version import Version
 DEFAULT_VAULT_NAME = lambda token: f"{token.symbol()} yVault"
 DEFAULT_VAULT_SYMBOL = lambda token: f"yv{token.symbol()}"
 
-# create a random account that will deploy the vault
-# acct = accounts.add();
 acct = accounts.add('priv key')
-gas_price = 103628712501
-#gas_price = GasNowScalingStrategy()
 
+gas_strategy = LinearScalingStrategy("30 gwei", "100 gwei", 1.1)
 
+param = { 'from': acct, 'gas_price': gas_strategy }
 
 PACKAGE_VERSION = yaml.safe_load(
     (Path(__file__).parent.parent / "ethpm-config.yaml").read_text()
@@ -48,10 +46,9 @@ def main():
     dev = acct
     #dev = accounts.load(click.prompt("Account", type=click.Choice(accounts.load())))
     click.echo(f"You are using: 'dev' [{dev.address}]")
-    param = { 'from': dev, 'gas_price': gas_price }
    
     #deploy Registry contract
-    reg = Registry.deploy( { 'from': dev, 'gas_price': gas_price})
+    reg = Registry.deploy( param )
     registry = Registry.at(reg.address)
     click.echo(f"Registry Deployed at [{reg.address}]")
     #registry.newRelease()
@@ -61,6 +58,7 @@ def main():
     #)
         
     latest_release = Version(registry.latestRelease())
+    
     
     num_releases = registry.numReleases() - 1
     target_release_index = num_releases
@@ -157,7 +155,7 @@ def main():
             # NOTE: Must always include guardian, even if default
             args.insert(2, guardian)
             args.append(release_delta)
-            txn_receipt = registry.newExperimentalVault(*args, {"from": dev, "gas_price": gas_price})
+            txn_receipt = registry.newExperimentalVault(*args, param)
             click.echo(txn_receipt.error())
             vault = Vault.at(txn_receipt.events["NewExperimentalVault"]["vault"])
             click.echo(f"Experimental Vault deployed [{vault.address}]")
@@ -165,7 +163,7 @@ def main():
         else:
             args.append(guardian)
             args.append(management)
-            vault = dev.deploy(Vault,{"gas_price": gas_price})
+            vault = dev.deploy(Vault, param)
             vault.initialize(*args)
             click.echo(f"New Vault Release deployed [{vault.address}]")
             click.echo(
