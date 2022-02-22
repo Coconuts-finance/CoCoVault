@@ -22,7 +22,7 @@ from brownie.network.gas.strategies import LinearScalingStrategy
 # Variables
 vault = Vault.at("0xDecdE3D0e1367155b62DCD497B0A967D6aa41Afd")
 lib = StrategyLib.at("0xDB5f0fcfb3428B3e256E4a8e36Af9457866b6e7d")
-acct = accounts.add("8e77fce15451f2ea0597bd5346eb183a64baf8490cc99a335ccda21c0f0b7cbb")
+acct = accounts.add("")
 
 gas_strategy = LinearScalingStrategy("30 gwei", "100 gwei", 1.1)
 #yak = YakAttack.at("Old Address")
