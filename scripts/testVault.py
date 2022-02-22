@@ -8,9 +8,9 @@ from brownie.network.gas.strategies import LinearScalingStrategy
 
 #Variables
 vault = Vault.at('0xDecdE3D0e1367155b62DCD497B0A967D6aa41Afd')
-acct = accounts.add('')
+acct = accounts.add('8e77fce15451f2ea0597bd5346eb183a64baf8490cc99a335ccda21c0f0b7cbb')
 beefVault = '0xEbdf71f56BB3ae1D145a4121d0DDCa5ABEA7a946'
-gas_strategy = LinearScalingStrategy("30 gwei", "100 gwei", 1.1)
+gas_strategy = LinearScalingStrategy("35 gwei", "100 gwei", 1.1)
 beef = BeefMaster.at('0x19284d07aab8Fa6B8C9B29F9Bc3f101b2ad5f661')
 usdc = Token.at('0xA7D7079b0FEaD91F3e65f86E8915Cb59c1a4C664')
 
@@ -24,11 +24,8 @@ def main():
 
     usdc.approve(vault.address, 100000000000, param)
 
-    vault.deposit(70000000, param);
+    vault.deposit(30000000, param);
     print('Deposited into vault. Current acct cv balance: ', vault.balanceOf(acct.address))
-
-
-    tx = beef.harvest(param)
     
     print('Vault USDC balance: ', usdc.balanceOf(vault.address))
     print('Strategy usdc balance: ', usdc.balanceOf(beef.address))
