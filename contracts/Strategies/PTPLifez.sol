@@ -55,15 +55,15 @@ contract PTPLifez is BaseStrategy, SwapperLife {
         uint256 _pid
     ) internal {
         // Instantiate vault
-        setPool(_pool);
         pUsdc = IERC20(_pUsdc);
+        setPool(_pool);
         PTP = _ptp;
         _setMightyJoeRouter(_router);
         _setJoeFactory(_factory);
         setMasterPlatypus(_masterPlatypus);
         pid = _pid;
 
-        minPtp = 1000000000;
+        minPtp = 1000000000000000;
         minDeposit = 100000;
     }
 
@@ -79,12 +79,14 @@ contract PTPLifez is BaseStrategy, SwapperLife {
 
         uint256 _allowance = want.allowance(address(this), address(pool));
         want.safeDecreaseAllowance(address(pool), _allowance);
+        _allowance = pUsdc.allowance(address(this), address(pool));
+        pUsdc.safeDecreaseAllowance(address(pool), _allowance);
         setPool(_pool);
     }
 
     function setPool(address _pool) internal {
         pool = IPool(_pool);
-
+        pUsdc.safeApprove(_pool, type(uint256).max);
         want.safeApprove(_pool, type(uint256).max);
     }
 
@@ -305,7 +307,7 @@ contract PTPLifez is BaseStrategy, SwapperLife {
                 uint256 amountToFree = _amountNeeded.sub(wantBalance);
 
                 //check if there is enough in vault
-                if (deposited < amountToFree) {
+                if (deposited <= amountToFree) {
                     //withdraw evertything
                     withdrawSome(deposited);
 
@@ -348,15 +350,15 @@ contract PTPLifez is BaseStrategy, SwapperLife {
         uint256 bal = pUsdc.balanceOf(address(this));
         if (_amountNeeded > bal) {
             //need to unstake difference
-            (uint256 staked, , ) = masterPlatypus.userInfo(pid, address(this));
+            uint256 staked = stakedBalance();
 
-            if (staked < _amountNeeded.sub(bal)) {
+            if (staked <= _amountNeeded.sub(bal)) {
                 masterPlatypus.withdraw(pid, staked);
             } else {
                 masterPlatypus.withdraw(pid, _amountNeeded.sub(bal));
             }
 
-            pool.withdraw(address(want), pUsdc.balanceOf(address(this)), 0, address(this), block.timestamp);
+            pool.withdraw(address(want), toWant(pUsdc.balanceOf(address(this))), 0, address(this), block.timestamp);
         } else {
             pool.withdraw(address(want), _amountNeeded, 0, address(this), block.timestamp);
         }
@@ -377,7 +379,7 @@ contract PTPLifez is BaseStrategy, SwapperLife {
     function prepareMigration(address _newStrategy) internal override {
         harvestPtp();
         IERC20 _ptp = IERC20(PTP);
-        uint256 _ptpB = balanceOfToken(address(_ptp));
+        uint256 _ptpB = balanceOfToken(PTP);
         if (_ptpB > 0) {
             _ptp.safeTransfer(_newStrategy, _ptpB);
         }
@@ -415,6 +417,7 @@ contract PTPLifez is BaseStrategy, SwapperLife {
 
     //manual withdraw incase needed
     function manualWithdraw(uint256 _amount) external onlyStrategist {
+        pUsdc.approve(address(pool), _amount);
         pool.withdraw(address(want), _amount, 0, address(this), block.timestamp);
     }
 

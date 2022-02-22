@@ -6,6 +6,8 @@ from brownie import Vault, BeefMaster, YakAttack, JoeFoSho, PTPLifez, StrategyLi
 from eth_utils import is_checksum_address
 from brownie.network.gas.strategies import LinearScalingStrategy
 
+# param = { 'from': accounts.add('8e77fce15451f2ea0597bd5346eb183a64baf8490cc99a335ccda21c0f0b7cbb'), 'gas_price': 30000000 }
+
 #Variables
 vault = Vault.at('0xDecdE3D0e1367155b62DCD497B0A967D6aa41Afd')
 lib = StrategyLib.at('0xDB5f0fcfb3428B3e256E4a8e36Af9457866b6e7d')
@@ -17,7 +19,7 @@ yak = YakAttack.at('0x9F1a3536d7B4f27e0e20bc6d9a55588a1a00bf9C')
 
 usdc = Token.at('0xA7D7079b0FEaD91F3e65f86E8915Cb59c1a4C664')
 
-gas_strategy = LinearScalingStrategy("35 gwei", "100 gwei", 1.1)
+gas_strategy = LinearScalingStrategy("25 gwei", "100 gwei", 1.1)
 
 param = { 'from': acct, 'gas_price': gas_strategy }
 

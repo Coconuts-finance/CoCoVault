@@ -28,7 +28,7 @@ def main():
     print('Strategy usdc balance: ', usdc.balanceOf(beef.address))
     print('Acct usdc: ', usdc.balanceOf(acct.address))
     print('Account cvUSDC: ', vault.balanceOf(acct.address))
-    tx = vault.withdraw(shares, param);
+    tx = vault.withdraw(10000000, param);
     print('Funds withdrawn')
     print('Vault USDC balance: ', usdc.balanceOf(vault.address))
     print('Strategy usdc balance: ', usdc.balanceOf(beef.address))
