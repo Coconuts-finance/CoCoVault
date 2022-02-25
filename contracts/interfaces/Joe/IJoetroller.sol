@@ -129,9 +129,21 @@ interface IJoetroller {
         );
 
     /***  joe claims ****/
-    function claimReward(address holder) external;
+    function claimReward(uint8 rewardType, address holder) external;
 
-    function claimReward(address holder, JTokenI[] memory cTokens) external;
+    function claimReward(
+        uint rewardType,
+        address holder,
+        JTokenI[] memory jTokens
+    ) external;
+
+    function claimReward(
+        uint8 rewardType,
+        address[] memory holders,
+        JTokenI[] memory jTokens,
+        bool borrowers,
+        bool suppliers
+    ) external;
 
     function markets(address ctoken)
         external

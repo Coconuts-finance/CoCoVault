@@ -13,7 +13,7 @@ import {SwapperLife} from "./SwapperLife.sol";
 import {IPool} from "../interfaces/PTP/IPool.sol";
 import {IMasterPlatypus} from "../interfaces/PTP/IMasterPlatypus.sol";
 
-contract PTPLifez is BaseStrategy, SwapperLife {
+contract PTPLockLife is BaseStrategy, SwapperLife {
     using SafeERC20 for IERC20;
     using Address for address;
     using SafeMath for uint256;
@@ -22,25 +22,26 @@ contract PTPLifez is BaseStrategy, SwapperLife {
     IMasterPlatypus masterPlatypus; //0xB0523f9F473812FB195Ee49BC7d2ab9873a98044
     IERC20 pUsdc; //IERC20(0x909B0ce4FaC1A0dCa78F8Ca7430bBAfeEcA12871);
 
-    address PTP; //IERC20(0x22d4002028f537599be9f666d1c4fa138522f9c8);
+    address PTP;//0x22d4002028f537599be9f666d1c4fa138522f9c8;
+    address vePTP;//0x5857019c749147EEE22b1Fe63500F237F3c1B692;
 
     uint256 minPtp;
     uint256 minDeposit;
-    //keeps track of balance once it is staked
-    uint256 pUsdcBalance = 0;
+  
+    uint256 lockUp = 5000; // Set the amount that should be locked when harvested i.e. 1000 == 10%
+    uint256 denom = 10000;  //denominator in basis points for lock up calulations
     uint256 pid;
 
     constructor(
         address _vault,
         address _pool,
         address _pUsdc,
-        address _ptp,
         address _router,
         address _factory,
         address _masterPlatypus,
         uint256 _pid
     ) public BaseStrategy(_vault) {
-        initializeIt(_pool, _pUsdc, _ptp, _router, _factory, _masterPlatypus, _pid);
+        initializeIt(_pool, _pUsdc, _router, _factory, _masterPlatypus, _pid);
     }
 
     //approve all to the staking contract
@@ -48,7 +49,6 @@ contract PTPLifez is BaseStrategy, SwapperLife {
     function initializeIt(
         address _pool,
         address _pUsdc,
-        address _ptp,
         address _router,
         address _factory,
         address _masterPlatypus,
@@ -57,7 +57,6 @@ contract PTPLifez is BaseStrategy, SwapperLife {
         // Instantiate vault
         pUsdc = IERC20(_pUsdc);
         setPool(_pool);
-        PTP = _ptp;
         _setMightyJoeRouter(_router);
         _setJoeFactory(_factory);
         setMasterPlatypus(_masterPlatypus);
@@ -71,7 +70,7 @@ contract PTPLifez is BaseStrategy, SwapperLife {
 
     function name() external view override returns (string memory) {
         // Add your own name here, suggestion e.g. "StrategyCreamYFI"
-        return "PTPLIFEZ";
+        return "PTP Lock Life";
     }
 
     function changePool(address _pool) public onlyStrategist {
@@ -102,7 +101,8 @@ contract PTPLifez is BaseStrategy, SwapperLife {
 
     function setMasterPlatypus(address _master) internal {
         masterPlatypus = IMasterPlatypus(_master);
-
+        //Max approve the ptp to vePTP staker
+        IERC20(PTP).safeApprove(_master, type(uint256).max);
         pUsdc.safeApprove(_master, type(uint256).max);
     }
 
@@ -121,6 +121,10 @@ contract PTPLifez is BaseStrategy, SwapperLife {
 
     function setMinPtp(uint256 _min) external onlyStrategist {
         minPtp = _min;
+    }
+
+    function setLockup(uint256 _lockup) external onlyStrategist {
+        lockUp = _lockup;
     }
 
     function toWant(uint256 _shares) public view returns (uint256) {
@@ -150,6 +154,7 @@ contract PTPLifez is BaseStrategy, SwapperLife {
         return balanceOfVault().add(stakedBalance());
     }
 
+    //@@DEV need to add the staked vePTP balance
     function estimatedTotalAssets() public view override returns (uint256) {
         uint256 bal = toWant(invested()).add(balanceOfToken(address(want)));
         //get estimated PTP and price
@@ -195,6 +200,7 @@ contract PTPLifez is BaseStrategy, SwapperLife {
 
         //get base want balance
         uint256 wantBalance = balanceOfToken(address(want));
+        //NEED TO ADD STAKED PTP
         uint256 balance = wantBalance.add(toWant(invested()));
 
         //get amount given to strat by vault
@@ -267,7 +273,11 @@ contract PTPLifez is BaseStrategy, SwapperLife {
             return;
         }
 
-        _swapFrom(PTP, address(want), _ptp);
+        uint256 toStake = _ptp.mul(lockUp).div(denom);
+        uint256 toSwap = _ptp.sub(toStake);
+        //Stake function to lock PTP
+
+        _swapFrom(PTP, address(want), toSwap);
     }
 
     //approve all to the staking contract
@@ -295,6 +305,7 @@ contract PTPLifez is BaseStrategy, SwapperLife {
     function liquidatePosition(uint256 _amountNeeded) internal override returns (uint256 _liquidatedAmount, uint256 _loss) {
         //check what we have available
         uint256 wantBalance = balanceOfToken(address(want));
+        //Dont account for vePTP because it can not be withdrawn
         uint256 deposited = toWant(invested());
         if (_amountNeeded > wantBalance) {
             //harvest first to avoid withdraw fees
@@ -366,7 +377,7 @@ contract PTPLifez is BaseStrategy, SwapperLife {
 
     function liquidateAllPositions() internal override returns (uint256) {
         harvestPtp();
-        disposeOfPtp();
+        _swapFrom(PTP, address(want), IERC20(PTP).balanceOf(address(this)));
 
         (uint256 staked, , ) = masterPlatypus.userInfo(pid, address(this));
         masterPlatypus.withdraw(pid, staked);

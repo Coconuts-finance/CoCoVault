@@ -11,8 +11,8 @@ import {
 import { SafeERC20, SafeMath, IERC20, Address } from "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 import {Math} from "@openzeppelin/contracts/math/Math.sol";
 
-import "../interfaces/joe/Ijoetroller.sol";
-import "../interfaces/joe/IJoe.sol";
+import "../interfaces/joe/IJoetroller.sol";
+import "../interfaces/joe/IJToken.sol";
 import "../interfaces/Uni/IUniswapV2Router02.sol";
 import "../interfaces/IERC20Extended.sol";
 
@@ -28,7 +28,7 @@ contract JoeFoSho is BaseStrategy {
     //Only three tokens we use
     address public joe;
     address public weth;
-    Ijoe public JToken;
+    IJToken public JToken;
 
     IUniswapV2Router02 public currentRouter; //uni v2 forks only
 
@@ -84,7 +84,7 @@ contract JoeFoSho is BaseStrategy {
         address _joetroller, 
         address _weth
     ) internal {
-        JToken = Ijoe(_JToken);
+        JToken = IJToken(_JToken);
         joe = _joe;
         weth = _weth;
         joetroller = IJoetroller(_joetroller);
@@ -226,14 +226,15 @@ contract JoeFoSho is BaseStrategy {
     //WARNING does not include joeounding so the estimate becomes more innacurate the further ahead we look
     //equation. Compound doesn't include compounding for most blocks
     //((deposits*colateralThreshold - borrows) / (borrows*borrowrate - deposits*colateralThreshold*interestrate));
+
     function getblocksUntilLiquidation() public view returns (uint256) {
         (, uint256 collateralFactorMantissa, ) = joetroller.markets(address(JToken));
 
         (uint256 deposits, uint256 borrows) = getCurrentPosition();
 
-        uint256 borrrowRate = JToken.borrowRatePerBlock();
+        uint256 borrrowRate; // = JToken.borrowRatePerBlock();
 
-        uint256 supplyRate = JToken.supplyRatePerBlock();
+        uint256 supplyRate;// = JToken.supplyRatePerBlock();
 
         uint256 collateralisedDeposit = deposits.mul(collateralFactorMantissa).div(1e18);
 
@@ -261,10 +262,10 @@ contract JoeFoSho is BaseStrategy {
         uint256 distributionPerSecondSupply = joetroller.rewardSupplySpeeds(address(JToken));
         uint256 distributionPerSecondBorrow = joetroller.rewardBorrowSpeeds(address(JToken));
 
-        uint256 totalBorrow = JToken.totalBorrows();
+        uint256 totalBorrow; // = JToken.totalBorrows();
 
         //total supply needs to be echanged to underlying using exchange rate
-        uint256 totalSupplyJToken = JToken.totalSupply();
+        uint256 totalSupplyJToken; // = JToken.totalSupply();
         uint256 totalSupply = totalSupplyJToken.mul(JToken.exchangeRateStored()).div(1e18);
 
         uint256 blockShareSupply = 0;
@@ -302,7 +303,7 @@ contract JoeFoSho is BaseStrategy {
         deposits = JToken.balanceOfUnderlying(address(this));
 
         //we can use non state changing now because we updated state with balanceOfUnderlying call
-        borrows = JToken.borrowBalanceStored(address(this));
+        borrows;// = JToken.borrowBalanceStored(address(this));
     }
 
     //Same warning as above
@@ -572,10 +573,11 @@ contract JoeFoSho is BaseStrategy {
         if (dontClaimjoe) {
             return;
         }
-        JTokenI[] memory tokens = new JTokenI[](1);
+        IJToken[] memory tokens = new IJToken[](1);
         tokens[0] = JToken;
 
-        joetroller.claimReward(address(this), tokens);
+        //joetroller.claimReward(0, address(this), tokens);
+        //joetroller.claimReward(0, address(this), tokens);
     }
 
     //sell joe function
@@ -590,14 +592,14 @@ contract JoeFoSho is BaseStrategy {
     }
 
     function getTokenOutPathV2(address _tokenIn, address _tokenOut) internal view returns (address[] memory _path) {
-        bool isWeth = _tokenIn == address(weth) || _tokenOut == address(weth);
+        bool isWeth = _tokenIn == weth || _tokenOut == weth;
         _path = new address[](isWeth ? 2 : 3);
         _path[0] = _tokenIn;
 
         if (isWeth) {
             _path[1] = _tokenOut;
         } else {
-            _path[1] = address(weth);
+            _path[1] = weth;
             _path[2] = _tokenOut;
         }
     }

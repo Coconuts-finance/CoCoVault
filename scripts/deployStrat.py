@@ -2,7 +2,7 @@ from pathlib import Path
 from sqlite3 import paramstyle
 import click
 
-from brownie import Vault, BeefMaster, YakAttack, JoeFoSho, PTPLifez, StrategyLib, Token, accounts, config, network, project, web3
+from brownie import Vault, BeefMaster, YakAttack, SingleJoe, PTPLifez, StrategyLib, Token, accounts, config, network, project, web3
 from eth_utils import is_checksum_address
 from brownie.network.gas.strategies import LinearScalingStrategy
 
@@ -10,6 +10,7 @@ from brownie.network.gas.strategies import LinearScalingStrategy
 vault = Vault.at('0xDecdE3D0e1367155b62DCD497B0A967D6aa41Afd')
 lib = StrategyLib.at('0xDB5f0fcfb3428B3e256E4a8e36Af9457866b6e7d')
 acct = accounts.add('')
+#acct = accounts.at('0xaa9F4EB6273904CC609bdB06e7Df9f26Ed223Ff9', force=True)
 beefVault = '0xEbdf71f56BB3ae1D145a4121d0DDCa5ABEA7a946'
 beef = BeefMaster.at('0x19284d07aab8Fa6B8C9B29F9Bc3f101b2ad5f661')
 yakFarm = '0xf5Ac502C3662c07489662dE5f0e127799D715E1E'
@@ -17,7 +18,7 @@ yak = YakAttack.at('0x9F1a3536d7B4f27e0e20bc6d9a55588a1a00bf9C')
 
 usdc = Token.at('0xA7D7079b0FEaD91F3e65f86E8915Cb59c1a4C664')
 
-gas_strategy = LinearScalingStrategy("25 gwei", "100 gwei", 1.1)
+gas_strategy = LinearScalingStrategy("28 gwei", "30 gwei", 1.1)
 
 param = { 'from': acct, 'gas_price': gas_strategy }
 
@@ -45,20 +46,36 @@ def main():
     if input("Deploy Strategy? y/[N]: ").lower() != "y":
         return
 
-    """
-    lib = StrategyLib.deploy( param )
-    print('Library deployed to ', lib.address )
-    strategy = JoeFoSho.deploy(
+    strategy = SingleJoe.deploy(
         vault.address, 
         '0xEd6AaF91a2B084bd594DBd1245be3691F9f637aC', #Pool
         '0x60aE616a2155Ee3d9A68541Ba4544862310933d4', #Router 
         '0x6e84a6216eA6dACC71eE8E6b0a5B7322EEbC0fDd', #Joe Token
-        '0xdc13687554205E5b89Ac783db14bb5bba4A1eDaC', #Joe Troller
-        '0xB31f66AA3C1e785363F0875A1B74E27b85FD66c7',  #WAVAX
+        '0xdc13687554205E5b89Ac783db14bb5bba4A1eDaC',  #Joe Troller
         param
     )
-    """
+    
+    print("Strategy Deployed: ", strategy.address)
 
+    vault.migrateStrategy(beef, strategy, param);
+
+    print("Vault USDC balance: ", usdc.balanceOf(vault.address))
+    print("beef Strategy balance: ", beef.estimatedTotalAssets())
+    print("New Strat Balance: ", strategy.estimatedTotalAssets())
+    print("Acct usdc: ", usdc.balanceOf(acct.address))
+    print("Account cvUSDC: ", vault.balanceOf(acct.address))
+    
+    tx = strategy.harvest(param)
+    print(tx.events)
+
+    print("Vault USDC balance: ", usdc.balanceOf(vault.address))
+    print("Old Strategy balance: ", beef.estimatedTotalAssets())
+    print("New Strat Balance: ", strategy.estimatedTotalAssets())
+    print("Acct usdc: ", usdc.balanceOf(acct.address))
+    print("Account cvUSDC: ", vault.balanceOf(acct.address))
+
+    """
+    
     strategy = PTPLifez.deploy(
         vault.address,
         '0x66357dCaCe80431aee0A7507e2E361B7e2402370',    ##pool
@@ -70,16 +87,12 @@ def main():
         1,      #pid
         param
     )
-   
-    print("Strategy Deployed: ", strategy.address)
-
-
-    #Adjust the debt ratio in order to add new strat
-    vault.updateStrategyDebtRatio(beef.address, 2000, param)
-    vault.updateStrategyDebtRatio(yak.address, 2000, param)
-
+    
+    #Adjust the debt ratio in order to add new strat'
+    vault.updateStrategyDebtRatio(beef.address, 4000, param)
+    
     strategy = strategy.address       # Your strategy address
-    debt_ratio = 5800                 # 98%
+    debt_ratio = 4000                 # 98%
     minDebtPerHarvest = 0             # Lower limit on debt add
     maxDebtPerHarvest = 2 ** 256 - 1  # Upper limit on debt add
     performance_fee = 1000            # Strategist perf fee: 10%
@@ -92,7 +105,8 @@ def main():
         performance_fee, 
         param
     )
+    
 
     print('Strategy added to Vault')
-    
+    """
 

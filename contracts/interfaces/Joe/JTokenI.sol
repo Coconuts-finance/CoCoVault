@@ -2,7 +2,7 @@
 pragma solidity ^0.6.12;
 
 interface JTokenI {
-     /*** Market Events ***/
+    /*** Market Events ***/
 
     /**
      * @notice Event emitted when interest is accrued
@@ -91,6 +91,16 @@ interface JTokenI {
     function balanceOf(address owner) external view returns (uint256);
 
     function balanceOfUnderlying(address owner) external returns (uint256);
+
+    function getAccountSnapshot(address account)
+        external
+        view
+        returns (
+            uint256,
+            uint256,
+            uint256,
+            uint256
+        );
 
     function borrowRatePerBlock() external view returns (uint256);
 
