@@ -16,7 +16,6 @@ usdc = Token.at('0xA7D7079b0FEaD91F3e65f86E8915Cb59c1a4C664')
 
 param = { 'from': acct, 'gas_price': gas_strategy }
 
-
 def main():
     print(f"You are using the '{network.show_active()}' network")
     #dev = accounts.load(click.prompt("Account", type=click.Choice(accounts.load())))
