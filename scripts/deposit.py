@@ -8,7 +8,6 @@ from brownie.network.gas.strategies import LinearScalingStrategy
 
 #Variables
 vault = Vault.at('0xDecdE3D0e1367155b62DCD497B0A967D6aa41Afd')
-
 beefVault = '0xEbdf71f56BB3ae1D145a4121d0DDCa5ABEA7a946'
 gas_strategy = LinearScalingStrategy("35 gwei", "100 gwei", 1.1)
 beef = BeefMaster.at('0x19284d07aab8Fa6B8C9B29F9Bc3f101b2ad5f661')
