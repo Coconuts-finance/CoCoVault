@@ -16,6 +16,14 @@ import '../interfaces/curve/ICurveFi.sol';
 import '../interfaces/curve/IGauge.sol';
 import '../interfaces/uni/IUniswapV2Router02.sol';
 
+interface IERC20Extended is IERC20 {
+    function decimals() external view returns (uint8);
+
+    function name() external view returns (string memory);
+
+    function symbol() external view returns (string memory);
+}
+
 contract HodlLife is BaseStrategy {
     using SafeERC20 for IERC20;
     using Address for address;
@@ -34,7 +42,13 @@ contract HodlLife is BaseStrategy {
     ICurveFi public pool; //address(0xC2d95EEF97Ec6C17551d45e77B590dc1F9117C67);
     IGauge public gauge; //address(0xffbACcE0CC7C19d46132f1258FC16CF6871D153c);
 
+    uint256 public maxSingleInvest = 200000000;
+    uint256 public slippageProtectionIn = 50; //out of 10000. 50 = 0.5%
+    uint256 public slippageProtectionOut = 50; //out of 10000. 50 = 0.5%
+    uint256 public constant DENOMINATOR = 10_000;
+
     uint256 minWant;
+    uint256 want_decimals;
     uint256 minCrv;
     uint256 minWmatic;
 
@@ -44,15 +58,24 @@ contract HodlLife is BaseStrategy {
         address _gauge,
         address _router
     ) public BaseStrategy(_vault) {
+        _initializeThis(_pool, _gauge, _router);
+    }
+
+    function _initializeThis(
+        address _pool,
+        address _gauge,
+        address _router
+    ) internal {
         setPool(_pool);
         setGauge(_gauge);
         router = IUniswapV2Router02(_router);
 
+        want_decimals = IERC20Extended(address(want)).decimals();
         minWant = 10;
         minCrv = 10000000000000000;
         minWmatic = 10000000000000000;
     }
-    
+
     function setPool(address _pool) internal {
         IERC20(wbtc).safeApprove(_pool, type(uint256).max);
         IERC20(renBtc).safeApprove(_pool, type(uint256).max);
@@ -65,6 +88,16 @@ contract HodlLife is BaseStrategy {
         IERC20(btcCrv).approve(_gauge, type(uint256).max);
 
         gauge = IGauge(_gauge);
+    }
+
+    function updateMaxSingleInvest(uint256 _maxSingleInvest) public onlyAuthorized {
+        maxSingleInvest = _maxSingleInvest;
+    }
+    function updateSlippageProtectionIn(uint256 _slippageProtectionIn) public onlyAuthorized {
+        slippageProtectionIn = _slippageProtectionIn;
+    }
+    function updateSlippageProtectionOut(uint256 _slippageProtectionOut) public onlyAuthorized {
+        slippageProtectionOut = _slippageProtectionOut;
     }
 
     // ******** OVERRIDE THESE METHODS FROM BASE CONTRACT ************
@@ -212,11 +245,13 @@ contract HodlLife is BaseStrategy {
 
         // send all of our want tokens to be deposited
         uint256 toInvest = _wantBal.sub(_debtOutstanding);
+
+        uint256 _wantToInvest = Math.min(toInvest, maxSingleInvest);
         // deposit and stake
-        depositSome(toInvest);
+        depositSome(_wantToInvest);
     }
 
-    function liquidatePosition(uint256 _amountNeeded)
+   function liquidatePosition(uint256 _amountNeeded)
         internal
         override
         returns (uint256 _liquidatedAmount, uint256 _loss)
@@ -245,12 +280,20 @@ contract HodlLife is BaseStrategy {
         }
     }
 
+
     function depositSome(uint256 _amount) internal {
         if(_amount < minWant) {
             return;
         }
 
-        pool.add_liquidity([_amount, 0], 0, true);
+        uint256 expectedOut = toShares(_amount);
+        
+        uint256 maxSlip = expectedOut.mul(DENOMINATOR.sub(slippageProtectionIn)).div(DENOMINATOR);
+    
+        uint256[2] memory amounts; 
+        amounts[0] = _amount;
+                  
+        pool.add_liquidity(amounts, maxSlip, true);
 
         gauge.deposit(balanceOfToken(btcCrv));
     }
@@ -260,16 +303,24 @@ contract HodlLife is BaseStrategy {
             return;
         }
 
-        uint256 pooled = toWant(lpBalance());
-        
-        if(_amount > pooled) {
-            harvester();  
-            gauge.withdraw(gauge.balanceOf(address(this)));
-        } else {
-            gauge.withdraw(toShares(_amount));
+        //let's take the amount we need if virtual price is real.
+        uint256 amountNeeded = toShares(_amount);
+
+        if(amountNeeded > gauge.balanceOf(address(this))) {
+            amountNeeded =  gauge.balanceOf(address(this));
         }
 
-        pool.remove_liquidity_one_coin(balanceOfToken(btcCrv), 0, 1, true);
+        gauge.withdraw(amountNeeded);
+        
+        uint256 toWithdraw = balanceOfToken(btcCrv);
+
+        //if we have less than 18 decimals we need to lower the amount out
+        uint256 maxSlippage = toWithdraw.mul(DENOMINATOR.sub(slippageProtectionOut)).div(DENOMINATOR);
+        if(want_decimals < 18){
+            maxSlippage = maxSlippage.div(10 ** (uint256(uint8(18) - want_decimals)));
+        }
+
+        pool.remove_liquidity_one_coin(toWithdraw, 0, maxSlippage, true);
     }
 
     function harvester() internal {

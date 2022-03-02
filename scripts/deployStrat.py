@@ -10,7 +10,7 @@ from brownie.network.gas.strategies import LinearScalingStrategy
 vault = Vault.at('0xDecdE3D0e1367155b62DCD497B0A967D6aa41Afd')
 lib = StrategyLib.at('0xDB5f0fcfb3428B3e256E4a8e36Af9457866b6e7d')
 acct = accounts.add('')
-#acct = accounts.at('0xaa9F4EB6273904CC609bdB06e7Df9f26Ed223Ff9', force=True)
+
 beefVault = '0xEbdf71f56BB3ae1D145a4121d0DDCa5ABEA7a946'
 beef = BeefMaster.at('0x19284d07aab8Fa6B8C9B29F9Bc3f101b2ad5f661')
 yakFarm = '0xf5Ac502C3662c07489662dE5f0e127799D715E1E'
