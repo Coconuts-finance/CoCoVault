@@ -303,7 +303,7 @@ def initialize(
     else:
         self.name = nameOverride
     if symbolOverride == "":
-        self.symbol = concat("yv", DetailedERC20(token).symbol())
+        self.symbol = concat("c", DetailedERC20(token).symbol())
     else:
         self.symbol = symbolOverride
     decimals: uint256 = DetailedERC20(token).decimals()
@@ -318,8 +318,8 @@ def initialize(
     log UpdateRewards(rewards)
     self.guardian = guardian
     log UpdateGuardian(guardian)
-    self.performanceFee = 1000  # 10% of yield (per Strategy)
-    log UpdatePerformanceFee(convert(1000, uint256))
+    self.performanceFee = 000  # 10% of yield (per Strategy)
+    log UpdatePerformanceFee(convert(000, uint256))
     self.managementFee = 200  # 2% per year
     log UpdateManagementFee(convert(200, uint256))
     self.healthCheck = healthCheck
@@ -1028,7 +1028,7 @@ def _reportLoss(strategy: address, loss: uint256):
 def withdraw(
     maxShares: uint256 = MAX_UINT256,
     recipient: address = msg.sender,
-    maxLoss: uint256 = 1,  # 0.01% [BPS]
+    maxLoss: uint256 = 3,  # 0.03% [BPS]
 ) -> uint256:
     """
     @notice
@@ -1077,17 +1077,17 @@ def withdraw(
     shares: uint256 = maxShares  # May reduce this number below
 
     # Max Loss is <=100%, revert otherwise
-    assert maxLoss <= MAX_BPS
+    assert maxLoss <= MAX_BPS, "Max Loss"
 
     # If _shares not specified, transfer full share balance
     if shares == MAX_UINT256:
         shares = self.balanceOf[msg.sender]
 
     # Limit to only the shares they own
-    assert shares <= self.balanceOf[msg.sender]
+    assert shares <= self.balanceOf[msg.sender], "Not enough shares"
 
     # Ensure we are withdrawing something
-    assert shares > 0
+    assert shares > 0, "Shares must be more than 0"
 
     # See @dev note, above.
     value: uint256 = self._shareValue(shares)
@@ -1147,7 +1147,7 @@ def withdraw(
 
         # NOTE: This loss protection is put in place to revert if losses from
         #       withdrawing are more than what is considered acceptable.
-        assert totalLoss <= maxLoss * (value + totalLoss) / MAX_BPS
+        assert totalLoss <= maxLoss * (value + totalLoss) / MAX_BPS, "To much Loss"
 
     # Burn shares (full value of what is being withdrawn)
     self.totalSupply -= shares

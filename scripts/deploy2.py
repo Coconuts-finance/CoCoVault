@@ -97,7 +97,7 @@ def main():
         args.append(guardian)
         args.append(management)
         vault = Vault.deploy( param )
-        #vault = dev.deploy(Vault,{"gas_price": gas_price})
+        
         click.echo('Vault Deployed')
 
         init = vault.initialize(*args, param )

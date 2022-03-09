@@ -2,7 +2,7 @@
 // Feel free to change the license, but this is what we use
 
 // Feel free to change this version of Solidity. We support >=0.6.0 <0.7.0;
-pragma solidity 0.6.12;
+pragma solidity >=0.6.0 <0.7.0;
 pragma experimental ABIEncoderV2;
 
 // These are the core Yearn libraries
@@ -30,14 +30,11 @@ contract HodlLife is BaseStrategy {
     using SafeMath for uint256;
 
     IUniswapV2Router02 router;
-    address public factory = 0x1F98431c8aD98523631AE4a59f267346ea31F984;
 
     address public constant btcCrv = address(0xf8a57c1d3b9629b77b6726a042ca48990A84Fb49);
     address public constant wmatic = address(0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270);
     address public constant crv = address(0x172370d5Cd63279eFa6d502DAB29171933a610AF);
-
-    address public wbtc = address(0x1BFD67037B42Cf73acF2047067bd4F2C47D9BfD6);
-    address public renBtc = address(0xDBf31dF14B66535aF65AaC99C32e9eA844e14501);
+    address public constant wbtc = address(0x1BFD67037B42Cf73acF2047067bd4F2C47D9BfD6);
 
     ICurveFi public pool; //address(0xC2d95EEF97Ec6C17551d45e77B590dc1F9117C67);
     IGauge public gauge; //address(0xffbACcE0CC7C19d46132f1258FC16CF6871D153c);
@@ -78,12 +75,11 @@ contract HodlLife is BaseStrategy {
 
     function setPool(address _pool) internal {
         IERC20(wbtc).safeApprove(_pool, type(uint256).max);
-        IERC20(renBtc).safeApprove(_pool, type(uint256).max);
 
         pool = ICurveFi(_pool);
     }
 
-    function setGauge(address _gauge) internal  {
+    function setGauge(address _gauge) internal {
         //approve gauge
         IERC20(btcCrv).approve(_gauge, type(uint256).max);
 
@@ -307,6 +303,7 @@ contract HodlLife is BaseStrategy {
         uint256 amountNeeded = toShares(_amount);
 
         if(amountNeeded > gauge.balanceOf(address(this))) {
+            harvester();
             amountNeeded =  gauge.balanceOf(address(this));
         }
 
