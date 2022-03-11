@@ -585,7 +585,7 @@ def setWithdrawalQueue(queue: address[MAXIMUM_STRATEGIES]):
         The array of addresses to use as the new withdrawal queue. This is
         order sensitive.
     """
-    assert msg.sender in [self.management, self.governance]
+    assert msg.sender in [self.management, self.governance], "You dont have permisions"
 
     # HACK: Temporary until Vyper adds support for Dynamic arrays
     old_queue: address[MAXIMUM_STRATEGIES] = empty(address[MAXIMUM_STRATEGIES])
@@ -612,9 +612,9 @@ def setWithdrawalQueue(queue: address[MAXIMUM_STRATEGIES]):
             if j <= i:
                 # NOTE: This will only check for duplicate entries in queue after `i`
                 continue
-            assert queue[i] != queue[j]  # dev: do not add duplicate strategies
+            assert queue[i] != queue[j], 'dev: do not add duplicate strategies'
 
-        assert existsInOldQueue # dev: do not add new strategies
+        assert existsInOldQueue, ' dev: do not add new strategies'
 
         self.withdrawalQueue[i] = queue[i]
     log UpdateWithdrawalQueue(queue)
@@ -917,10 +917,10 @@ def deposit(_amount: uint256 = MAX_UINT256, recipient: address = msg.sender) -> 
         )
     else:
         # Ensure deposit limit is respected
-        assert self._totalAssets() + amount <= self.depositLimit
+        assert self._totalAssets() + amount <= self.depositLimit, "Would go over Deposit limit"
 
     # Ensure we are depositing something
-    assert amount > 0
+    assert amount > 0, "Must deposit more than 0"
 
     # Issue new shares (needs to be done before taking deposit to be accurate)
     # Shares are issued to recipient (may be different from msg.sender)

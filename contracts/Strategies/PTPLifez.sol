@@ -63,7 +63,7 @@ contract PTPLifez is BaseStrategy, SwapperLife {
         setMasterPlatypus(_masterPlatypus);
         pid = _pid;
 
-        minPtp = 1000000000000000;
+        minPtp = 10000000000000000;
         minDeposit = 100000;
     }
 

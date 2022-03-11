@@ -69,8 +69,8 @@ contract HodlLife is BaseStrategy {
 
         want_decimals = IERC20Extended(address(want)).decimals();
         minWant = 10;
-        minCrv = 10000000000000000;
-        minWmatic = 10000000000000000;
+        minCrv = 1000000000000000;
+        minWmatic = 1000000000000000;
     }
 
     function setPool(address _pool) internal {
@@ -100,7 +100,7 @@ contract HodlLife is BaseStrategy {
 
     function name() external view override returns (string memory) {
         // Add your own name here, suggestion e.g. "StrategyCreamYFI"
-        return "Hodl Like its Hot";
+        return "Hodl it Like its Hot";
     }
 
     function balanceOfToken(address _token) public view returns (uint256) {
@@ -130,6 +130,7 @@ contract HodlLife is BaseStrategy {
         return wantBalance.add(rewards).add(poolBalance);
     }
 
+    //estimate is based off accrued rewards from the last time the account was touched
     function estimatedRewards() public view returns (uint256) {
         uint256 crvWant = _checkPrice(crv, address(want), balanceOfToken(crv).add(predictCrvAccrued()));
         uint256 wmaticWant = _checkPrice(wmatic, address(want), balanceOfToken(wmatic).add(predictWmaticAccrued()));
@@ -169,7 +170,7 @@ contract HodlLife is BaseStrategy {
             uint256 _debtPayment
         )
     {
-         _profit = 0;
+        _profit = 0;
         _loss = 0; // for clarity. also reduces bytesize
         _debtPayment = 0;
 
@@ -321,10 +322,6 @@ contract HodlLife is BaseStrategy {
     }
 
     function harvester() internal {
-        if(predictCrvAccrued() < minCrv && predictWmaticAccrued() < minWmatic){
-            return;
-        }
-
         gauge.claim_rewards();
         disposeCrv();
         disposeWmatic();
@@ -396,15 +393,14 @@ contract HodlLife is BaseStrategy {
     }
 
     function liquidateAllPositions() internal override returns (uint256) {
-        harvester();
-        gauge.withdraw(gauge.balanceOf(address(this)));
+        gauge.withdraw(gauge.balanceOf(address(this)), true);
+        disposeCrv();
+        disposeWmatic();
         pool.remove_liquidity_one_coin(balanceOfToken(btcCrv), 0, 0, true);
     }
 
-    // NOTE: Can override `tendTrigger` and `harvestTrigger` if necessary
-
     function prepareMigration(address _newStrategy) internal override {
-        harvester();
+        gauge.withdraw(gauge.balanceOf(address(this)), true);
         uint256 _crvB = balanceOfToken(crv);
         if (_crvB > 0) {
             IERC20(crv).safeTransfer(_newStrategy, _crvB);
@@ -414,7 +410,6 @@ contract HodlLife is BaseStrategy {
             IERC20(wmatic).safeTransfer(_newStrategy, _wmaticB);
         }
 
-        gauge.withdraw(gauge.balanceOf(address(this)));
         IERC20(btcCrv).transfer(_newStrategy, balanceOfToken(btcCrv));
 
     }

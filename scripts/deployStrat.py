@@ -46,7 +46,9 @@ def main():
         param
     )
     
-    #Adjust the debt ratio in order to add new strat'
+    #Adjust the debt ratio in order to add new strat if needed
+
+    #vault.updateStrategyDebtRatio(strat.address, _amount, param)
  
 
     strategy = strategy.address       # Your strategy address

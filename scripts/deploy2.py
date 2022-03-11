@@ -17,12 +17,10 @@ acct = accounts.add('')
 gas_strategy = LinearScalingStrategy("30 gwei", "50 gwei", 1.1)
 
 #Deposit limit for vault
-#1M in usdc.e
-limit = 1000000000000
+
+limit = 1000000000000 #1M in usdc.e
 
 param = { 'from': acct, 'gas_price': gas_strategy }
-
-usdce = '0xA7D7079b0FEaD91F3e65f86E8915Cb59c1a4C664'
 
 PACKAGE_VERSION = yaml.safe_load(
     (Path(__file__).parent.parent / "ethpm-config.yaml").read_text()
