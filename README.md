@@ -1,11 +1,11 @@
-# Yearn Vault Contracts
+# Coconuts Vault Contracts
 
 Please read and be familiar with the [Specification](SPECIFICATION.md).
 
-This repository is the set of smart contracts that are used for the Yearn Vaults.
+This repository is the set of smart contracts that are used for the Coconuts Vaults. It is a fork of the Yearn Vaults.
 It contains the requirements, code, deployment scripts, and tests necessary for the
 core protocol, including a inheritable template strategy for use with Solidity-based
-strategies that interact with Yearn Vaults. These contracts are used to create a simple
+strategies that interact with Vaults. These contracts are used to create a simple
 way to generate high risk-adjusted returns for depositors of various assets via best-
 in-class lending protocols, liquidity pools, and community-made yield farming strategies
 on Ethereum.
@@ -29,8 +29,8 @@ You will need [yarn](https://yarnpkg.com/lang/en/docs/install/) installed.
 It is recommended to use a Python virtual environment.
 
 ```bash
-git clone https://github.com/yearn/yearn-vaults
-cd yearn-vaults
+git clone git@github.com:Schlagonia/CoCoVault ##Needs to be updated to final location of CoCo Repo
+cd CoCoVault
 yarn install --lock-file
 ```
 
