@@ -185,14 +185,10 @@ Fix linter errors for `*.py` files:
 black .
 ```
 
-## Security
-
-For security concerns, please visit [Bug Bounty](https://github.com/yearn/yearn-vaults/security/policy).
-
 ## Documentation
 
-You can read more about Yearn Finance on our documentation [webpage](https://docs.yearn.finance).
+You can read more about Yearn Finance on our documentation [webpage](https://docs.coconuts.finance/).
 
 ## Discussion
  
-For questions not covered in the docs, please visit [our Discord server](http://discord.yearn.finance).
+For questions not covered in the docs, please visit [our Discord server](https://discord.gg/coconuts).

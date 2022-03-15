@@ -1,5 +1,5 @@
 //SPDX-License-Identifier: Unlicense
-pragma solidity >=0.6.0 <0.7.0;
+pragma solidity ^0.6.12;
 
 
 interface IGauge {
@@ -8,7 +8,8 @@ interface IGauge {
 
     function balanceOf(address) external view returns (uint256);
 
-    function withdraw(uint256) external;
+    function withdraw(uint256 _value) external; // _claim_rewards=False
+    function withdraw(uint256 _value, bool _claim_rewards) external;
 
     function claim_rewards() external;
 
@@ -16,4 +17,6 @@ interface IGauge {
         address _owner,
         address _token
     ) external view returns (uint256 _claimable);
+
+    function claimable_reward_write(address _addr, address _token) external returns (uint256);
 }

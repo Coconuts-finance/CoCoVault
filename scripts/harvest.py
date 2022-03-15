@@ -17,40 +17,44 @@ from eth_utils import is_checksum_address
 from brownie.network.gas.strategies import LinearScalingStrategy
 
 
-API_VERSION = config["dependencies"][0].split("@")[-1]
-"""
-Vault = project.load(
-    Path.home() / ".brownie" / "packages" / config["dependencies"][0]
-).Vault
-"""
-# Variables
-vault = Vault.at("0xDecdE3D0e1367155b62DCD497B0A967D6aa41Afd")
+#Variables
+acct = accounts.add('privKey')
+gas_strategy = LinearScalingStrategy("30 gwei", "50 gwei", 1.1)
+param = { 'from': acct, 'gas_price': gas_strategy }
 
-acct = accounts.add("")
-yak = YakAttack.at("0x9F1a3536d7B4f27e0e20bc6d9a55588a1a00bf9C")
-pp = PTPLifez.at("0x541dCb7b9F340D6b311034D33581563213de11cF")
-token = Token.at("0xA7D7079b0FEaD91F3e65f86E8915Cb59c1a4C664")
-gas_strategy = LinearScalingStrategy("26 gwei", "30 gwei", 1.1)
+#tokens
+usdc = '0x2791bca1f2de4661ed88a30c99a7a9449aa84174'
+dai = '0x8f3cf7ad23cd3cadbd9735aff958023239c6a063'
+weth = '0x7ceb23fd6bc0add59e62ac25578270cff1b9f619'
+wbtc = '0x1bfd67037b42cf73acf2047067bd4f2c47d9bfd6'
+wmatic = '0x0d500b1d8e8ef31e21c99d1db9a6444d3adf1270'
 
-param = {"from": acct, "gas_price": gas_strategy}
+#vaults
+usdcVault = ''
+daiVault = ''
+wethVault = ''
+wbtcVault = '0x5fa039aFc64dABC8B219b6E85749faD3939D8564'
+wmaticVault = ''
 
+### THESE VARIABLES NEED TO BE UPDATED
+#Variables
+vault = Vault.at(usdcVault)
+token = Token.at(usdc)
+strat = Strategy.at('')
+### THESE VARIABLES NEED TO BE UPDATED
 
 def main():
 
     print("Vault token balance: ", token.balanceOf(vault.address))
-    print("Yak assets :", yak.estimatedTotalAssets())
-    print("PP assets :", pp.estimatedTotalAssets())
+    print("Strategy assets :", strat.estimatedTotalAssets())
     print("Acct token: ", token.balanceOf(acct.address))
-    print("Account cvUSDC: ", vault.balanceOf(acct.address))
+    print("Account cvToken: ", vault.balanceOf(acct.address))
     print("Vault PPS ", vault.pricePerShare())
 
-    yak.setEmergencyExit(param)
-    yak.harvest(param)
-    pp.harvest(param)
+    strat.harvest(param)
 
     print("Vault token balance: ", token.balanceOf(vault.address))
-    print("Yak assets :", yak.estimatedTotalAssets())
-    print("PP assets :", pp.estimatedTotalAssets())
+    print("Strategy assets :", strat.estimatedTotalAssets())
     print("Acct token: ", token.balanceOf(acct.address))
-    print("Account cvUSDC: ", vault.balanceOf(acct.address))
-    print("Vault PPS ", vault.pricePerShare())
+    print("Account cvToken: ", vault.balanceOf(acct.address))
+    print("Vault PPS ", vault.pricePerShare()) 

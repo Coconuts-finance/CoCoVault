@@ -13,14 +13,24 @@ DEFAULT_VAULT_NAME = lambda token: f"{token.symbol()} cVault"
 DEFAULT_VAULT_SYMBOL = lambda token: f"cv{token.symbol()}"
 
 #Variables
-acct = accounts.add('')
+acct = accounts.add('privKey')
 gas_strategy = LinearScalingStrategy("30 gwei", "50 gwei", 1.1)
-
-#Deposit limit for vault
-
-limit = 1000000000000 #1M in usdc.e
-
 param = { 'from': acct, 'gas_price': gas_strategy }
+
+#tokens
+usdc = '0x2791bca1f2de4661ed88a30c99a7a9449aa84174'
+dai = '0x8f3cf7ad23cd3cadbd9735aff958023239c6a063'
+weth = '0x7ceb23fd6bc0add59e62ac25578270cff1b9f619'
+wbtc = '0x1bfd67037b42cf73acf2047067bd4f2c47d9bfd6'
+wmatic = '0x0d500b1d8e8ef31e21c99d1db9a6444d3adf1270'
+
+registry = Registry.at('0xAa5893679788E1FAE460Ae6A96791a712FDC474F')
+
+### THESE VARIABLES NEED TO BE UPDATED
+#Deposit limit for vault
+limit = 1000000 # $1m in native token
+token = Token.at(usdc)
+###THESE VARIABLES NEED TO BE UPDATED
 
 PACKAGE_VERSION = yaml.safe_load(
     (Path(__file__).parent.parent / "ethpm-config.yaml").read_text()
@@ -49,13 +59,11 @@ def get_address(msg: str, default: str = None) -> str:
 def main():
     click.echo(f"You are using the '{network.show_active()}' network")
     dev = acct
-    #dev = accounts.load(click.prompt("Account", type=click.Choice(accounts.load())))
+    
     click.echo(f"You are using: 'dev' [{dev.address}]")
     
     use_proxy = False  # NOTE: Use a proxy to save on gas for experimental Vaults
     
-    token = Token.at(get_address("ERC20 Token"))
-
     gov = get_address("CNC Governance", default=dev)
 
     rewards = get_address("Rewards contract", default=dev)
@@ -91,17 +99,27 @@ def main():
             name if name != DEFAULT_VAULT_NAME(token) else "",
             symbol if symbol != DEFAULT_VAULT_SYMBOL(token) else "",
         ]
-        
-        args.append(guardian)
-        args.append(management)
-        vault = Vault.deploy( param )
-        
-        click.echo('Vault Deployed')
 
-        init = vault.initialize(*args, param )
-        click.echo(f"New Vault Release deployed [{vault.address}]")
+        if use_proxy:
+            # NOTE: Must always include guardian, even if default
+            args.insert(2, guardian)
+            txn_receipt = registry.newExperimentalVault(*args, param)
+            click.echo(txn_receipt.error())
+            vault = Vault.at(txn_receipt.events["NewExperimentalVault"]["vault"])
+            click.echo(f"Experimental Vault deployed [{vault.address}]")
+            click.echo("    NOTE: Vault is not registered in Registry!")
+        else:
+            args.append(guardian)
+            args.append(management)
+            vault = Vault.deploy( param )
         
-        vault.setDepositLimit(limit, param)
-        click.echo(f"Deposit limit sent to: [{limit}]")
+            click.echo('Vault Deployed')
+
+            vault.initialize(*args, param )
+            click.echo(f"New Vault Release deployed [{vault.address}]")
+        
+            vault.setDepositLimit(limit, param)
+            click.echo(f"Deposit limit sent to: [{limit}]")
+        
 
 

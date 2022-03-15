@@ -623,6 +623,21 @@ abstract contract BaseStrategy {
     function liquidateAllPositions() internal virtual returns (uint256 _amountFreed);
 
     /**
+     *  `Harvest()` calls this function after shares are created during
+     *  `vault.report()`. You can customize this function to any share
+     *  distribution mechanism you want.
+     *
+     *   See `vault.report()` for further details.
+     */
+    function distributeRewards() internal virtual {
+        // Transfer 100% of newly-minted shares awarded to this contract to the rewards address.
+        uint256 balance = vault.balanceOf(address(this));
+        if (balance > 0) {
+            vault.transfer(rewards, balance);
+        }
+    }
+
+    /**
      * @notice
      *  Provide a signal to the keeper that `tend()` should be called. The
      *  keeper will provide the estimated gas cost that they would pay to call
@@ -747,6 +762,9 @@ abstract contract BaseStrategy {
         // which is the amount it has earned since the last time it reported to
         // the Vault.
         debtOutstanding = vault.report(profit, loss, debtPayment);
+
+        // Distribute any reward shares earned by the strategy on this report
+        distributeRewards();
 
         // Check if free returns are left, and re-invest them
         adjustPosition(debtOutstanding);

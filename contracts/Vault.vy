@@ -1,11 +1,11 @@
 # @version 0.3.1
 """
-@title CNC Token Vault
+@title Coconuts Token Vault
 @license GNU AGPLv3
 @author Schlagonia, yearn.finance
 @notice
-    CNC Token Vault. Holds an underlying token, and allows users to interact
-    with the CNC ecosystem through Strategies connected to the Vault.
+    Coconuts Token Vault. Holds an underlying token, and allows users to interact
+    with the Coconuts ecosystem through Strategies connected to the Vault.
     Vaults are not limited to a single Strategy, they can have as many Strategies
     as can be designed (however the withdrawal queue is capped at 20.)
 
@@ -296,7 +296,7 @@ def initialize(
     @param guardian The address authorized for guardian interactions. Defaults to caller.
     """
     
-    assert self.activation == 0  # dev: no devops199
+    assert self.activation == 0, "Already activated"
     self.token = ERC20(token)
     if nameOverride == "":
         self.name = concat(DetailedERC20(token).symbol(), "cVault")
@@ -318,10 +318,10 @@ def initialize(
     log UpdateRewards(rewards)
     self.guardian = guardian
     log UpdateGuardian(guardian)
-    self.performanceFee = 000  # 10% of yield (per Strategy)
-    log UpdatePerformanceFee(convert(000, uint256))
-    self.managementFee = 200  # 2% per year
-    log UpdateManagementFee(convert(200, uint256))
+    self.performanceFee = 00  # 0% of yield (per Strategy)
+    log UpdatePerformanceFee(convert(00, uint256))
+    self.managementFee = 100  # 1% per year
+    log UpdateManagementFee(convert(100, uint256))
     self.healthCheck = healthCheck
     log UpdateHealthCheck(healthCheck)
 
@@ -365,7 +365,7 @@ def setName(name: String[42]):
         This may only be called by governance.
     @param name The new name to use.
     """
-    assert msg.sender == self.governance
+    assert msg.sender == self.governance, "Cant touch This, na na na na"
     self.name = name
 
 
@@ -378,7 +378,7 @@ def setSymbol(symbol: String[20]):
         This may only be called by governance.
     @param symbol The new symbol to use.
     """
-    assert msg.sender == self.governance
+    assert msg.sender == self.governance, "Cant touch This, na na na na"
     self.symbol = symbol
 
 
@@ -396,7 +396,7 @@ def setGovernance(governance: address):
         This may only be called by the current governance address.
     @param governance The address requested to take over Vault governance.
     """
-    assert msg.sender == self.governance
+    assert msg.sender == self.governance, "Cant touch This, na na na na"
     log NewPendingGovernance(msg.sender)
     self.pendingGovernance = governance
 
@@ -414,7 +414,7 @@ def acceptGovernance():
         setGovernance() should be called by the existing governance address,
         prior to calling this function.
     """
-    assert msg.sender == self.pendingGovernance
+    assert msg.sender == self.pendingGovernance, "Cant touch This, na na na na"
     self.governance = msg.sender
     log UpdateGovernance(msg.sender)
 
@@ -429,7 +429,7 @@ def setManagement(management: address):
         This may only be called by governance.
     @param management The address to use for managing.
     """
-    assert msg.sender == self.governance
+    assert msg.sender == self.governance, "Cant touch This, na na na na"
     self.management = management
     log UpdateManagement(management)
 
@@ -448,8 +448,8 @@ def setRewards(rewards: address):
         This may only be called by governance.
     @param rewards The address to use for collecting rewards.
     """
-    assert msg.sender == self.governance
-    assert not (rewards in [self, ZERO_ADDRESS])
+    assert msg.sender == self.governance, "Cant touch This, na na na na"
+    assert not (rewards in [self, ZERO_ADDRESS]), "Invalid Address"
     self.rewards = rewards
     log UpdateRewards(rewards)
 
@@ -461,9 +461,9 @@ def setLockedProfitDegradation(degradation: uint256):
         Changes the locked profit degradation.
     @param degradation The rate of degradation in percent per second scaled to 1e18.
     """
-    assert msg.sender == self.governance
+    assert msg.sender == self.governance, "Cant touch This, na na na na"
     # Since "degradation" is of type uint256 it can never be less than zero
-    assert degradation <= DEGRADATION_COEFFICIENT
+    assert degradation <= DEGRADATION_COEFFICIENT, " Must be lower than Degradation_coefficient"
     self.lockedProfitDegradation = degradation
     log LockedProfitDegradationUpdated(degradation) 
 
@@ -480,7 +480,7 @@ def setDepositLimit(limit: uint256):
         This may only be called by governance.
     @param limit The new deposit limit to use.
     """
-    assert msg.sender == self.governance
+    assert msg.sender == self.governance, "Cant touch This, na na na na"
     self.depositLimit = limit
     log UpdateDepositLimit(limit)
 
@@ -496,8 +496,8 @@ def setPerformanceFee(fee: uint256):
         This may only be called by governance.
     @param fee The new performance fee to use.
     """
-    assert msg.sender == self.governance
-    assert fee <= MAX_BPS / 2
+    assert msg.sender == self.governance, "Cant touch This, na na na na"
+    assert fee <= MAX_BPS / 2, "must be below 5000"
     self.performanceFee = fee
     log UpdatePerformanceFee(fee)
 
@@ -511,8 +511,8 @@ def setManagementFee(fee: uint256):
         This may only be called by governance.
     @param fee The new management fee to use.
     """
-    assert msg.sender == self.governance
-    assert fee <= MAX_BPS
+    assert msg.sender == self.governance, "Cant touch This, na na na na"
+    assert fee <= MAX_BPS, "The Fee is to Damn high"
     self.managementFee = fee
     log UpdateManagementFee(fee)
 
@@ -526,7 +526,7 @@ def setGuardian(guardian: address):
         This may only be called by governance or the existing guardian.
     @param guardian The new guardian address to use.
     """
-    assert msg.sender in [self.guardian, self.governance]
+    assert msg.sender in [self.guardian, self.governance], "Cant touch This, na na na na"
     self.guardian = guardian
     log UpdateGuardian(guardian)
 
@@ -553,9 +553,9 @@ def setEmergencyShutdown(active: bool):
         goes back into Normal Operation.
     """
     if active:
-        assert msg.sender in [self.guardian, self.governance]
+        assert msg.sender in [self.guardian, self.governance], "Cant touch This, na na na na"
     else:
-        assert msg.sender == self.governance
+        assert msg.sender == self.governance, "Cant touch This, na na na na"
     self.emergencyShutdown = active
     log EmergencyShutdown(active)
 
@@ -593,12 +593,12 @@ def setWithdrawalQueue(queue: address[MAXIMUM_STRATEGIES]):
         old_queue[i] = self.withdrawalQueue[i]
         if queue[i] == ZERO_ADDRESS:
             # NOTE: Cannot use this method to remove entries from the queue
-            assert old_queue[i] == ZERO_ADDRESS
+            assert old_queue[i] == ZERO_ADDRESS, 'Cannot use this method to remove entries from the queue'
             break
         # NOTE: Cannot use this method to add more entries to the queue
-        assert old_queue[i] != ZERO_ADDRESS
+        assert old_queue[i] != ZERO_ADDRESS, 'Cannot use this method to add more entries to the queue'
 
-        assert self.strategies[queue[i]].activation > 0
+        assert self.strategies[queue[i]].activation > 0, "Strat not activated"
 
         existsInOldQueue: bool = False
         for j in range(MAXIMUM_STRATEGIES):
@@ -660,7 +660,7 @@ def _transfer(sender: address, receiver: address, amount: uint256):
     # See note on `transfer()`.
 
     # Protect people from accidentally sending their shares to bad places
-    assert receiver not in [self, ZERO_ADDRESS]
+    assert receiver not in [self, ZERO_ADDRESS], "Not vaild transfer address"
     self.balanceOf[sender] -= amount
     self.balanceOf[receiver] += amount
     log Transfer(sender, receiver, amount)
@@ -773,8 +773,8 @@ def permit(owner: address, spender: address, amount: uint256, expiry: uint256, s
     @param signature A valid secp256k1 signature of Permit by owner encoded as r, s, v.
     @return True, if transaction completes successfully
     """
-    assert owner != ZERO_ADDRESS  # dev: invalid owner
-    assert expiry == 0 or expiry >= block.timestamp  # dev: permit expired
+    assert owner != ZERO_ADDRESS, 'dev: invalid owner'
+    assert expiry == 0 or expiry >= block.timestamp, 'dev: permit expired'
     nonce: uint256 = self.nonces[owner]
     digest: bytes32 = keccak256(
         concat(
@@ -796,7 +796,7 @@ def permit(owner: address, spender: address, amount: uint256, expiry: uint256, s
     r: uint256 = convert(slice(signature, 0, 32), uint256)
     s: uint256 = convert(slice(signature, 32, 32), uint256)
     v: uint256 = convert(slice(signature, 64, 1), uint256)
-    assert ecrecover(digest, v, r, s) == owner  # dev: invalid signature
+    assert ecrecover(digest, v, r, s) == owner, 'dev: invalid signature'
     self.allowance[owner][spender] = amount
     self.nonces[owner] = nonce + 1
     log Approval(owner, spender, amount)
@@ -859,7 +859,7 @@ def _issueSharesForAmount(to: address, amount: uint256) -> uint256:
     else:
         # No existing shares, so mint 1:1
         shares = amount
-    assert shares != 0 # dev: division rounding resulted in zero
+    assert shares != 0, 'dev: division rounding resulted in zero'
 
     # Mint new shares
     self.totalSupply = totalSupply + shares
@@ -903,8 +903,8 @@ def deposit(_amount: uint256 = MAX_UINT256, recipient: address = msg.sender) -> 
         caller's address.
     @return The issued Vault shares.
     """
-    assert not self.emergencyShutdown  # Deposits are locked out
-    assert recipient not in [self, ZERO_ADDRESS]
+    assert not self.emergencyShutdown, 'Deposits are locked out'
+    assert recipient not in [self, ZERO_ADDRESS], 'Invalid Address'
 
     amount: uint256 = _amount
 
@@ -1002,7 +1002,7 @@ def maxAvailableShares() -> uint256:
 def _reportLoss(strategy: address, loss: uint256):
     # Loss can only be up the amount of debt issued to strategy
     totalDebt: uint256 = self.strategies[strategy].totalDebt
-    assert totalDebt >= loss
+    assert totalDebt >= loss, 'Loss cant be greater than total Debt'
 
     # Also, make sure we reduce our trust with the strategy by the amount of loss
     if self.debtRatio != 0: # if vault with single strategy that is set to EmergencyOne
@@ -1077,7 +1077,7 @@ def withdraw(
     shares: uint256 = maxShares  # May reduce this number below
 
     # Max Loss is <=100%, revert otherwise
-    assert maxLoss <= MAX_BPS, "Max Loss"
+    assert maxLoss <= MAX_BPS, "Max Loss set to high"
 
     # If _shares not specified, transfer full share balance
     if shares == MAX_UINT256:
@@ -1215,22 +1215,22 @@ def addStrategy(
         The fee the strategist will receive based on this Vault's performance.
     """
     # Check if queue is full
-    assert self.withdrawalQueue[MAXIMUM_STRATEGIES - 1] == ZERO_ADDRESS
+    assert self.withdrawalQueue[MAXIMUM_STRATEGIES - 1] == ZERO_ADDRESS, "To many strategies in the queue"
 
     # Check calling conditions
-    assert not self.emergencyShutdown
-    assert msg.sender == self.governance
+    assert not self.emergencyShutdown, "Emercency Shut down initiated"
+    assert msg.sender == self.governance, "Your not allowed to be here"
 
     # Check strategy configuration
-    assert strategy != ZERO_ADDRESS
-    assert self.strategies[strategy].activation == 0
-    assert self == Strategy(strategy).vault()
-    assert self.token.address == Strategy(strategy).want()
+    assert strategy != ZERO_ADDRESS, "Cant be 0 address"
+    assert self.strategies[strategy].activation == 0, 'Already Activated'
+    assert self == Strategy(strategy).vault(), 'Vault not set to this vault'
+    assert self.token.address == Strategy(strategy).want(), 'Want dont get'
 
     # Check strategy parameters
-    assert self.debtRatio + debtRatio <= MAX_BPS
-    assert minDebtPerHarvest <= maxDebtPerHarvest
-    assert performanceFee <= MAX_BPS / 2
+    assert self.debtRatio + debtRatio <= MAX_BPS, "Debt ration to high"
+    assert minDebtPerHarvest <= maxDebtPerHarvest, 'Min Debt per harvest to high'
+    assert performanceFee <= MAX_BPS / 2, 'Perf fee to high'
 
     # Add strategy to approved strategies
     self.strategies[strategy] = StrategyParams({
@@ -1267,12 +1267,12 @@ def updateStrategyDebtRatio(
     @param strategy The Strategy to update.
     @param debtRatio The quantity of assets `strategy` may now manage.
     """
-    assert msg.sender in [self.management, self.governance]
-    assert self.strategies[strategy].activation > 0
+    assert msg.sender in [self.management, self.governance], "You shall not pass"
+    assert self.strategies[strategy].activation > 0, 'Strat not Activated'
     self.debtRatio -= self.strategies[strategy].debtRatio
     self.strategies[strategy].debtRatio = debtRatio
     self.debtRatio += debtRatio
-    assert self.debtRatio <= MAX_BPS
+    assert self.debtRatio <= MAX_BPS, 'Not enough debt ratio'
     log StrategyUpdateDebtRatio(strategy, debtRatio)
 
 
@@ -1291,9 +1291,9 @@ def updateStrategyMinDebtPerHarvest(
     @param minDebtPerHarvest
         Lower limit on the increase of debt since last harvest
     """
-    assert msg.sender in [self.management, self.governance]
-    assert self.strategies[strategy].activation > 0
-    assert self.strategies[strategy].maxDebtPerHarvest >= minDebtPerHarvest
+    assert msg.sender in [self.management, self.governance], "You shall not pass"
+    assert self.strategies[strategy].activation > 0, 'Strat not active'
+    assert self.strategies[strategy].maxDebtPerHarvest >= minDebtPerHarvest, 'Not high enough'
     self.strategies[strategy].minDebtPerHarvest = minDebtPerHarvest
     log StrategyUpdateMinDebtPerHarvest(strategy, minDebtPerHarvest)
 
@@ -1313,9 +1313,9 @@ def updateStrategyMaxDebtPerHarvest(
     @param maxDebtPerHarvest
         Upper limit on the increase of debt since last harvest
     """
-    assert msg.sender in [self.management, self.governance]
-    assert self.strategies[strategy].activation > 0
-    assert self.strategies[strategy].minDebtPerHarvest <= maxDebtPerHarvest
+    assert msg.sender in [self.management, self.governance], "You shall not pass"
+    assert self.strategies[strategy].activation > 0, "Not active"
+    assert self.strategies[strategy].minDebtPerHarvest <= maxDebtPerHarvest, 'To Low'
     self.strategies[strategy].maxDebtPerHarvest = maxDebtPerHarvest
     log StrategyUpdateMaxDebtPerHarvest(strategy, maxDebtPerHarvest)
 
@@ -1334,16 +1334,16 @@ def updateStrategyPerformanceFee(
     @param strategy The Strategy to update.
     @param performanceFee The new fee the strategist will receive.
     """
-    assert msg.sender == self.governance
-    assert performanceFee <= MAX_BPS / 2
-    assert self.strategies[strategy].activation > 0
+    assert msg.sender == self.governance, "You shall not pass"
+    assert performanceFee <= MAX_BPS / 2, 'The fee is to damn high'
+    assert self.strategies[strategy].activation > 0, "Strat not active"
     self.strategies[strategy].performanceFee = performanceFee
     log StrategyUpdatePerformanceFee(strategy, performanceFee)
 
 
 @external
 def setHealthCheck(_healthCheck: address):
-    assert msg.sender in [self.management, self.governance]
+    assert msg.sender in [self.management, self.governance], "You shall not pass"
     log UpdateHealthCheck(_healthCheck)
     self.healthCheck = _healthCheck
 
@@ -1371,10 +1371,10 @@ def migrateStrategy(oldVersion: address, newVersion: address):
     @param oldVersion The existing Strategy to migrate from.
     @param newVersion The new Strategy to migrate to.
     """
-    assert msg.sender == self.governance
-    assert newVersion != ZERO_ADDRESS
-    assert self.strategies[oldVersion].activation > 0
-    assert self.strategies[newVersion].activation == 0
+    assert msg.sender == self.governance, "You shall not pass"
+    assert newVersion != ZERO_ADDRESS, "Cant be 0 addy"
+    assert self.strategies[oldVersion].activation > 0, 'old not active'
+    assert self.strategies[newVersion].activation == 0, 'New already active'
 
     strategy: StrategyParams = self.strategies[oldVersion]
 
@@ -1427,7 +1427,7 @@ def revokeStrategy(strategy: address = msg.sender):
         shutdown.
     @param strategy The Strategy to revoke.
     """
-    assert msg.sender in [strategy, self.governance, self.guardian, self.management]
+    assert msg.sender in [strategy, self.governance, self.guardian, self.management], "You shall not pass"
     # NOTE: This function may be called via `BaseStrategy.setEmergencyExit` while the
     #       strategy might have already been revoked or had the debt limit set to zero
     if self.strategies[strategy].debtRatio == 0:
@@ -1448,9 +1448,9 @@ def addStrategyToQueue(strategy: address):
         `setWithdrawalQueue` to change the order.
     @param strategy The Strategy to add.
     """
-    assert msg.sender in [self.management, self.governance]
+    assert msg.sender in [self.management, self.governance], "You shall not pass"
     # Must be a current Strategy
-    assert self.strategies[strategy].activation > 0
+    assert self.strategies[strategy].activation > 0, "Not acitve"
     # Can't already be in the queue
     last_idx: uint256 = 0
     for s in self.withdrawalQueue:
@@ -1459,7 +1459,7 @@ def addStrategyToQueue(strategy: address):
         assert s != strategy
         last_idx += 1
     # Check if queue is full
-    assert last_idx < MAXIMUM_STRATEGIES
+    assert last_idx < MAXIMUM_STRATEGIES, 'Already have the max strategies in the queusicle'
 
     self.withdrawalQueue[MAXIMUM_STRATEGIES - 1] = strategy
     self._organizeWithdrawalQueue()
@@ -1478,7 +1478,7 @@ def removeStrategyFromQueue(strategy: address):
         be possible to withdraw from the Strategy if it's unwinding.
     @param strategy The Strategy to remove.
     """
-    assert msg.sender in [self.management, self.governance]
+    assert msg.sender in [self.management, self.governance], "You shall not pass"
     for idx in range(MAXIMUM_STRATEGIES):
         if self.withdrawalQueue[idx] == strategy:
             self.withdrawalQueue[idx] = ZERO_ADDRESS
@@ -1726,7 +1726,7 @@ def report(gain: uint256, loss: uint256, _debtPayment: uint256) -> uint256:
     """
 
     # Only approved strategies can call this function
-    assert self.strategies[msg.sender].activation > 0
+    assert self.strategies[msg.sender].activation > 0, 'Strat not active'
 
     # Check report is within healthy ranges
     if self.healthCheck != ZERO_ADDRESS:
@@ -1735,13 +1735,13 @@ def report(gain: uint256, loss: uint256, _debtPayment: uint256) -> uint256:
             _debtOutstanding: uint256 = self._debtOutstanding(msg.sender)
             totalDebt: uint256 = self.strategies[msg.sender].totalDebt
 
-            assert(HealthCheck(self.healthCheck).check(strategy, gain, loss, _debtPayment, _debtOutstanding, totalDebt)) #dev: fail healthcheck
+            assert(HealthCheck(self.healthCheck).check(strategy, gain, loss, _debtPayment, _debtOutstanding, totalDebt)), 'dev: fail healthcheck'
         else:
             strategy: address  = msg.sender
             HealthCheck(self.healthCheck).enableCheck(strategy)
 
     # No lying about total available to withdraw!
-    assert self.token.balanceOf(msg.sender) >= gain + _debtPayment
+    assert self.token.balanceOf(msg.sender) >= gain + _debtPayment, 'not enough want freed by strat'
 
     # We have a loss to report, do it before the rest of the calculations
     if loss > 0:
@@ -1836,9 +1836,9 @@ def sweep(token: address, amount: uint256 = MAX_UINT256):
     @param token The token to transfer out of this vault.
     @param amount The quantity or tokenId to transfer out.
     """
-    assert msg.sender == self.governance
+    assert msg.sender == self.governance, "You shall not pass"
     # Can't be used to steal what this Vault is protecting
-    assert token != self.token.address
+    assert token != self.token.address, 'Cant sweep me'
     value: uint256 = amount
     if value == MAX_UINT256:
         value = ERC20(token).balanceOf(self)

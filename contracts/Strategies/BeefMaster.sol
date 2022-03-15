@@ -11,7 +11,7 @@ import {
 import { SafeERC20, SafeMath, IERC20, Address } from "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 
 // Import interfaces for many popular DeFi projects, or add your own!
-import { IBeefVault } from '../interfaces//Beefy/IBeefVault.sol';
+import { IBeefVault } from '../interfaces/Beefy/IBeefVault.sol';
 
 //3. Swap for lP tokens
 

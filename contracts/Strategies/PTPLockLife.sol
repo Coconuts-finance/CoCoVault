@@ -4,7 +4,7 @@ pragma experimental ABIEncoderV2;
 
 // These are the core Yearn libraries
 //import { BaseStrategy, StrategyParams } from "./BaseStrategy.sol";
-import {BaseStrategy, StrategyParams} from "../BaseStrategy.sol";
+import {BaseStrategy, StrategyParams} from  "../BaseStrategy.sol";
 import {SafeERC20, SafeMath, IERC20, Address} from "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 import {Math} from "@openzeppelin/contracts/math/Math.sol";
 
