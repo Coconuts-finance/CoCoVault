@@ -321,6 +321,7 @@ contract HodlLife is BaseStrategy {
         pool.remove_liquidity_one_coin(toWithdraw, 0, maxSlippage, true);
     }
 
+    //need to add a time based harvest check
     function harvester() internal {
         gauge.claim_rewards();
         disposeCrv();

@@ -26,8 +26,6 @@ contract PTPLifez is BaseStrategy, SwapperLife {
 
     uint256 minPtp;
     uint256 minDeposit;
-    //keeps track of balance once it is staked
-    uint256 pUsdcBalance = 0;
     uint256 pid;
 
     constructor(
@@ -64,7 +62,7 @@ contract PTPLifez is BaseStrategy, SwapperLife {
         pid = _pid;
 
         minPtp = 10000000000000000;
-        minDeposit = 100000;
+        minDeposit = 1000;
     }
 
     // ******** OVERRIDE THESE METHODS FROM BASE CONTRACT ************

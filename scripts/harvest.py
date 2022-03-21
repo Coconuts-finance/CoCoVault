@@ -3,7 +3,7 @@ import click
 
 from brownie import (
     Vault,
-    YakAttack,
+    SingleJoe,
     PTPLifez,
     StrategyLib,
     accounts,
@@ -19,7 +19,7 @@ from brownie.network.gas.strategies import LinearScalingStrategy
 
 #Variables
 acct = accounts.add('privKey')
-gas_strategy = LinearScalingStrategy("30 gwei", "50 gwei", 1.1)
+gas_strategy = LinearScalingStrategy("30 gwei", "40 gwei", 1.1)
 param = { 'from': acct, 'gas_price': gas_strategy }
 
 #tokens
@@ -38,9 +38,9 @@ wmaticVault = ''
 
 ### THESE VARIABLES NEED TO BE UPDATED
 #Variables
-vault = Vault.at(usdcVault)
-token = Token.at(usdc)
-strat = Strategy.at('')
+vault = Vault.at(wbtcVault)
+token = Token.at(wbtc)
+strat = SingleJoe.at('')
 ### THESE VARIABLES NEED TO BE UPDATED
 
 def main():
@@ -49,12 +49,14 @@ def main():
     print("Strategy assets :", strat.estimatedTotalAssets())
     print("Acct token: ", token.balanceOf(acct.address))
     print("Account cvToken: ", vault.balanceOf(acct.address))
-    print("Vault PPS ", vault.pricePerShare())
+    
 
-    strat.harvest(param)
+    tx = strat.harvest(param)
 
     print("Vault token balance: ", token.balanceOf(vault.address))
     print("Strategy assets :", strat.estimatedTotalAssets())
     print("Acct token: ", token.balanceOf(acct.address))
     print("Account cvToken: ", vault.balanceOf(acct.address))
-    print("Vault PPS ", vault.pricePerShare()) 
+    print(tx.events)
+
+    
