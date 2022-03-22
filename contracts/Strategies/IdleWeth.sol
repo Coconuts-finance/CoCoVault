@@ -262,6 +262,8 @@ contract IdleWeth is BaseStrategy{
 
     function liquidateAllPositions() internal override returns (uint256) {
         idleToken.redeemIdleToken(idleToken.balanceOf(address(this)));
+
+        return balanceOfToken(address(this));
     }
 
     function prepareMigration(address _newStrategy) internal override {

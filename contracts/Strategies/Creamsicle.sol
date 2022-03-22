@@ -257,6 +257,8 @@ contract Creamsicle is BaseStrategy{
 
     function liquidateAllPositions() internal override returns (uint256) {
         JToken.redeem(JToken.balanceOf(address(this)));
+
+        return balanceOfToken(address(want));
     }
 
     function depositSome(uint256 _amount) internal {

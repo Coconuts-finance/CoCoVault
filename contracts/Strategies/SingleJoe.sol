@@ -322,6 +322,8 @@ contract SingleJoe is BaseStrategy, SwapperLife {
         harvestJoe();
         disposeOfJoe();
         JToken.redeem(JToken.balanceOf(address(this)));
+
+        return balanceOfToken(address(want));
     }
 
     function depositSome(uint256 _amount) internal {

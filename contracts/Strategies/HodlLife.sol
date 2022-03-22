@@ -398,6 +398,8 @@ contract HodlLife is BaseStrategy {
         disposeCrv();
         disposeWmatic();
         pool.remove_liquidity_one_coin(balanceOfToken(btcCrv), 0, 0, true);
+
+        return balanceOfToken(address(want));
     }
 
     function prepareMigration(address _newStrategy) internal override {
