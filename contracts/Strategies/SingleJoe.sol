@@ -227,8 +227,7 @@ contract SingleJoe is BaseStrategy, SwapperLife {
 
             uint256 needed = _profit.add(_debtOutstanding);
             if (needed > wantBalance) {
-                needed = needed.sub(wantBalance);
-                withdrawSome(needed);
+                withdrawSome(needed.sub(wantBalance));
 
                 wantBalance = balanceOfToken(address(want));
 
