@@ -11,8 +11,8 @@ import {Math} from "@openzeppelin/contracts/math/Math.sol";
 import "../interfaces/curve/ICurveFi.sol";
 import "../interfaces/curve/IGauge.sol";
 import "../interfaces/uni/IUniswapV2Router02.sol";
-import "../interfaces/aave/IAaveIncentivesController.sol";
-import "../interfaces/aave/ILendingPool.sol";
+import "../interfaces/aave/V2/IAaveIncentivesController.sol";
+import "../interfaces/aave/V2/ILendingPool.sol";
 
 interface IERC20Extended is IERC20 {
     function decimals() external view returns (uint8);
