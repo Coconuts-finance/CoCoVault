@@ -24,6 +24,8 @@ interface IERC20Extended is IERC20 {
     function symbol() external view returns (string memory);
 }
 
+//Add swap from USDC to USDT
+
 contract CaaveNew is BaseStrategy {
     using SafeERC20 for IERC20;
     using Address for address;
@@ -40,7 +42,7 @@ contract CaaveNew is BaseStrategy {
 
     //curve contracts
     ICurveFi public crvPool; // 0xD51a44d3FaE010294C616388b506AcdA1bfAAE46\
-    IGauge public gauge; // 0x6955a55416a06839309018A8B0cB72c4DDC11f15
+    IGauge public gauge; // 0xDeFd8FdD20e0f34115C7018CCfb655796F6B2168
     address public constant crvToken = address(0xc4AD29ba4B3c580e6D59105FFf484999997675Ff);
 
     //ChainLink Price Feeds
@@ -50,6 +52,7 @@ contract CaaveNew is BaseStrategy {
     //borrow tokens
     address public constant weth = address(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
     address public constant wbtc = address(0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599);
+    address public constant usdt = address(0xdAC17F958D2ee523a2206206994597C13D831ec7);
 
     //reward tokens
     address public constant crv = address(0xD533a949740bb3306d119CC777fa900bA034cd52);
@@ -58,28 +61,31 @@ contract CaaveNew is BaseStrategy {
     //aave tokens
     address public aWant; 
     address public varWbtc; 
-    address public varWeth; 
+    address public varWeth;
+    address public varUsdt; 
 
     //used along the denominator or 10,000
-    uint256 targetCollatRatio = 5000; // The LTV we are levering up to
+    uint256 targetCollatRatio = 6000; // The LTV we are levering up to
     uint256 public adjustedTargetCollat; //decimal adjusted
-    uint256 lowerCollatBound = 4500; // the lower bound that will cause us to rebalance
+    uint256 lowerCollatBound = 5000; // the lower bound that will cause us to rebalance
     uint256 public adjustedLowerBound; //decimal adjusted collateral
-    uint256 upperCollatBound = 5500; //the upper bound that will cause us to rebalance
+    uint256 upperCollatBound = 7000; //the upper bound that will cause us to rebalance
     uint256 public adjustedUpperBound; //decimal adjusted lower bound
-    uint256 maxCollatRatio = 6500; // Closest to liquidation we'll risk
+    uint256 maxCollatRatio = 8000; // Closest to liquidation we'll risk
     uint256 curveMultiplier = 6000; // amount to multiply deposits by to determin total curve deposits
-    uint256 aaveMultiplier = 8000; // amount to multiply deposits by to determine how much to put into Aave
+    //uint256 aaveMultiplier = 8000; // amount to multiply deposits by to determine how much to put into Aave
     uint256 third = 3333; // get a third with den for deposit calcs
 
     uint256 maxSingleInvest;
-    uint256 slippageProtectionIn = 30; //out of 10000. 50 = 0.5%
-    uint256 slippageProtectionOut = 30; //out of 10000. 50 = 0.5%
+    uint256 slippageProtectionIn = 50; //out of 10000. 50 = 0.5%
+    uint256 slippageProtectionOut = 50; //out of 10000. 50 = 0.5%
+    uint256 crvSlippage = 30; // amount for curve liq all functions
     uint256 constant DENOMINATOR = 10_000;
     uint256 constant denomPrecision = 4;
 
-    //underlying token values
-    uint256 wantIndex = 0;
+    //underlying token 
+    //For the TriCrypto pool
+    uint256 usdtIndex = 0;
     uint256 wbtcIndex = 1;
     uint256 wethIndex = 2;
 
@@ -128,6 +134,9 @@ contract CaaveNew is BaseStrategy {
 
         (, , varWbtc) =
             protocolDataProvider.getReserveTokensAddresses(wbtc);
+
+        (, , varUsdt) =
+            protocolDataProvider.getReserveTokensAddresses(usdt);
         
         
         want_decimals = IERC20Extended(address(want)).decimals();
@@ -141,8 +150,8 @@ contract CaaveNew is BaseStrategy {
         maxSingleInvest = 10 ** (want_decimals.add(6));
         lastHarvest = block.timestamp;
 
-        //Set index mapping for crv swap
-        index[address(want)] = wantIndex;
+        //Set index mapping for crv Pools
+        index[usdt] = usdtIndex;
         index[wbtc] = wbtcIndex;
         index[weth] = wethIndex;
         
@@ -151,7 +160,7 @@ contract CaaveNew is BaseStrategy {
     function setCrvPool(address _crvPool) internal {
         IERC20(wbtc).safeApprove(_crvPool, type(uint256).max);
         IERC20(weth).safeApprove(_crvPool, type(uint256).max);
-        want.safeApprove(_crvPool, type(uint256).max);
+        IERC20(usdt).safeApprove(_crvPool, type(uint256).max);
         IERC20(crvToken).safeApprove(_crvPool, type(uint256).max);
 
         crvPool = ICurveFi(_crvPool);
@@ -168,6 +177,9 @@ contract CaaveNew is BaseStrategy {
         want.safeApprove(_router, type(uint256).max);
         IERC20(aave).safeApprove(_router, type(uint256).max);
         IERC20(crv).safeApprove(_router, type(uint256).max);
+        IERC20(usdt).safeApprove(_router, type(uint256).max);
+        IERC20(wbtc).safeApprove(_router, type(uint256).max);
+        IERC20(weth).safeApprove(_router, type(uint256).max);
 
         router = IUniswapV2Router02(_router);
     }
@@ -176,6 +188,7 @@ contract CaaveNew is BaseStrategy {
         want.safeApprove(_pool, type(uint256).max);
         IERC20(wbtc).safeApprove(_pool, type(uint256).max);
         IERC20(weth).safeApprove(_pool, type(uint256).max);
+        IERC20(usdt).safeApprove(_pool, type(uint256).max);
 
         lendingPool = ILendingPool(_pool);
     }
@@ -190,6 +203,12 @@ contract CaaveNew is BaseStrategy {
         IERC20(aave).safeDecreaseAllowance(address(router), _allowance);
         _allowance = IERC20(crv).allowance(address(this), address(router));
         IERC20(crv).safeDecreaseAllowance(address(router), _allowance);
+        _allowance = IERC20(usdt).allowance(address(this), address(router));
+        IERC20(usdt).safeDecreaseAllowance(address(router), _allowance);
+        _allowance = IERC20(wbtc).allowance(address(this), address(router));
+        IERC20(wbtc).safeDecreaseAllowance(address(router), _allowance);
+        _allowance = IERC20(weth).allowance(address(this), address(router));
+        IERC20(weth).safeDecreaseAllowance(address(router), _allowance);
 
         setRouter(_router);
     }
@@ -239,14 +258,14 @@ contract CaaveNew is BaseStrategy {
             return 0;
         }
 
-        return crvPool.calc_withdraw_one_coin(_lpBalance, wantIndex);
+        return crvPool.calc_withdraw_one_coin(_lpBalance, usdtIndex);   
     }
 
     //can calc a third of each
     function toShares(uint256 _wantAmount) public view returns (uint256) {
         uint256[3] memory amounts;
         uint256 dollars = aThird(_wantAmount);
-        amounts[wantIndex] = dollars;
+        amounts[usdtIndex] = dollars;
         amounts[wbtcIndex] = wantToBtc(dollars);
         amounts[wethIndex] = wantToEth(dollars);
         return crvPool.calc_token_amount(amounts, true);
@@ -272,7 +291,13 @@ contract CaaveNew is BaseStrategy {
     function getAaveBalance() public view returns (uint256) {
         (uint256 totalCollateralETH, uint256 totalDebtETH, , , , ) = lendingPool.getUserAccountData(address(this));
 
-        return ethToWant(totalCollateralETH.add(totalDebtETH));
+        return ethToWant(totalCollateralETH.sub(totalDebtETH));
+    }
+
+    function getAaveBalances() public view returns (uint256, uint256) {
+        (uint256 totalCollateralETH, uint256 totalDebtETH, , , , ) = lendingPool.getUserAccountData(address(this));
+
+        return(totalCollateralETH, totalDebtETH);
     }
 
     function getAavePositions() public view returns (uint256 deposits, uint256 borrows) {
@@ -434,7 +459,7 @@ contract CaaveNew is BaseStrategy {
         uint256 collatRatio = getCollatRatio(deposits, borrows);
 
         //how much to deposit into aave
-        uint256 deposit = _amount.mul(aaveMultiplier).div(DENOMINATOR);
+        uint256 toLeverage = _amount; //_amount.mul(aaveMultiplier).div(DENOMINATOR);
 
         //If above upperbound we need to adjust collat
         // need to adjust max collat for decimals 
@@ -448,12 +473,7 @@ contract CaaveNew is BaseStrategy {
                 //IF not withdraw enough to bring us back to target
                 uint256 needed = collatNeeded.sub(deposits.add(_amount));
                 deleverage(needed);
-                _depositCollateral(
-                    Math.min(
-                        want.balanceOf(address(this)), 
-                        _amount.add(aThird(needed.mul(curveMultiplier).div(DENOMINATOR)))
-                    )
-                );
+                
                 return;
             } else {
                 //we can deposit a portion of _amount to bring us back to target
@@ -463,43 +483,46 @@ contract CaaveNew is BaseStrategy {
                     return;
                 }
 
-                _depositCollateral(diff);
-                _amount = _amount.sub(diff);
-                deposit = _amount.mul(aaveMultiplier).div(DENOMINATOR);
+                //_depositCollateral(diff);
+                //_amount = _amount.sub(diff);
+                toLeverage = _amount.sub(diff);
             }
         } 
 
         //check if under lower collatRatio
         if(collatRatio < adjustedLowerBound) {
-            //deposit full amount into aave
-            //This will cause one extra call to aave but limit complexity
-            //we cannot use estimated assets to determine how much we want to borrow in case their is debt outstanding
-            _depositCollateral(_amount);
-            //allow the rebalance function to adjust based on new positions
-            (deposits, borrows) = getAavePositions();
-            rebalanceUp(deposits, borrows);
-            return;
+            
+            //calc desired deposits based on borrows
+            uint256 desiredDeposits = getDepositFromBorrow(borrows);
+
+            //sub from total expected new deposits
+            //leverage the diff
+            toLeverage = deposits.add(_amount).sub(desiredDeposits);
         }
 
         //levereage as normal
-        leverage(_amount, deposit);
+        leverage(_amount, toLeverage);
     }
 
-    function leverage(uint256 _amount, uint256 _deposit) internal {
-        uint256 kept = _amount.sub(_deposit);
+    function leverage(uint256 _amount, uint256 toLeverage) internal {
+        _depositCollateral(_amount);
 
-        _depositCollateral(_deposit);
+        uint256 borrowable = toLeverage.mul(targetCollatRatio).div(DENOMINATOR);
+
+        uint256 kept = aThird(borrowable);
+
+        uint256 usdtDeposit = _borrow(usdt, kept);
         uint256 wbtcDeposit = _borrow(wbtc, wantToBtc(kept));
         uint256 wethDeposit = _borrow(weth, wantToEth(kept));
 
-        uint256 expectedOut = toShares(kept.mul(3));
-        //can add a function to pass in the exact amounts to calculate shares
-        uint256 maxSlip = expectedOut.mul(DENOMINATOR.sub(slippageProtectionIn)).div(DENOMINATOR);
-
         uint256[3] memory amounts;
-        amounts[wantIndex] = kept;
+        amounts[usdtIndex] = usdtDeposit;
         amounts[wbtcIndex] = wbtcDeposit;
         amounts[wethIndex] = wethDeposit;
+
+        uint256 expectedOut = crvPool.calc_token_amount(amounts, true);
+        //can add a function to pass in the exact amounts to calculate shares
+        uint256 maxSlip = expectedOut.mul(DENOMINATOR.sub(slippageProtectionIn)).div(DENOMINATOR);
 
         crvPool.add_liquidity(amounts, maxSlip);
 
@@ -515,6 +538,12 @@ contract CaaveNew is BaseStrategy {
         //check the currect collat ratio
         (uint256 deposits, uint256 borrows) = getAavePositions();
 
+        //If we have not borrowed anything we can just remove the amount
+        if(borrows == 0) {
+            return _withdrawCollateral(_amount);
+            
+        }
+
         //check current collat ratio
         uint256 collatRatio = getCollatRatio(deposits, borrows);
 
@@ -529,16 +558,16 @@ contract CaaveNew is BaseStrategy {
             }
         }
 
-        uint256 dollars = deleverage(needed);
+        bool withdraw = deleverage(needed);
 
-        if(dollars != 1) {
-            return _withdrawCollateral(_amount.sub(dollars));
+        if(withdraw) {
+            return _withdrawCollateral(_amount);
         } else {
             return want.balanceOf(address(this));
         }
     }
 
-    function deleverage(uint256 _needed) internal returns (uint256){
+    function deleverage(uint256 _needed) internal returns (bool){
           // dollars worth to pull from curve
         uint256 toWithdraw = _needed.mul(curveMultiplier).div(DENOMINATOR);
        
@@ -548,8 +577,8 @@ contract CaaveNew is BaseStrategy {
         //check to see if we have enough
         if (shares > gauge.balanceOf(address(this))) {
             liquidateAllPositions();
-            //return 1 so that withdrawSome doesnt try to overWithdraw
-            return 1;
+            //return false so that withdrawSome doesnt try to overWithdraw
+            return false;
         }
 
         //withdraw from that gauge
@@ -560,16 +589,17 @@ contract CaaveNew is BaseStrategy {
 
         //get min to be recieved
         uint256[3] memory amounts;
-        amounts[wantIndex] = dollars.mul(DENOMINATOR.sub(slippageProtectionOut)).div(DENOMINATOR);
+        amounts[usdtIndex] = dollars.mul(DENOMINATOR.sub(slippageProtectionOut)).div(DENOMINATOR);
         amounts[wbtcIndex] = wantToBtc(dollars).mul(DENOMINATOR.sub(slippageProtectionOut)).div(DENOMINATOR);
         amounts[wethIndex] = wantToEth(dollars).mul(DENOMINATOR.sub(slippageProtectionOut)).div(DENOMINATOR);
 
         crvPool.remove_liquidity(shares, amounts);
 
+        _repay(usdt, Math.min(balanceOfToken(usdt), balanceOfToken(varUsdt)));
         _repay(wbtc, Math.min(balanceOfToken(wbtc), balanceOfToken(varWbtc)));
         _repay(weth, Math.min(balanceOfToken(weth), balanceOfToken(varWeth)));
 
-        return dollars;
+        return true;
     }
 
     function aThird(uint256 _amount) internal view returns (uint256) {
@@ -600,11 +630,11 @@ contract CaaveNew is BaseStrategy {
     }
 
     function getCollatRatio(uint256 deposits, uint256 borrows) public view returns (uint256) {
-        if (deposits == 0) {
+        if (borrows == 0) {
             return adjustedTargetCollat;
         }
 
-        return borrows.mul(want_decimals).div(deposits);
+        return borrows.mul(10 **(want_decimals)).div(deposits);
     }
 
     function getBorrowFromDeposit(uint256 deposit) internal view returns (uint256) {
@@ -719,6 +749,10 @@ contract CaaveNew is BaseStrategy {
         return crvPool.get_dy_underlying(index[_from], index[_to], _amount);
     }
 
+    function minCrvSwap(uint256 _amount) internal returns(uint256) {
+        return _amount.mul(DENOMINATOR.sub(crvSlippage)).div(DENOMINATOR);
+    }
+
     function _crvSwapWithAmount(
         uint256 _from,
         uint256 _to,
@@ -729,18 +763,18 @@ contract CaaveNew is BaseStrategy {
     }
 
     function _crvSwapFrom(
-        address _from,
-        address _to,
+        uint256 _from,
+        uint256 _to,
         uint256 _amount
     ) public{
          if (_amount == 0) {
             return;
         }
 
-        uint256 to = _checkCrvPrice(_from, _to, _amount);
-        _crvSwapWithAmount(index[_from], index[_to], _amount, to.mul(DENOMINATOR.sub(slippageProtectionIn)).div(DENOMINATOR));
+        uint256 to = crvPool.get_dy_underlying(_from, _to, _amount);
+        _crvSwapWithAmount(_from, to, _amount, to.mul(DENOMINATOR.sub(slippageProtectionIn)).div(DENOMINATOR));
     }
-
+  
     //need to go from PTP to AVAX to USDC.e
     function _swapFromWithAmount(
         address _from,
@@ -771,6 +805,18 @@ contract CaaveNew is BaseStrategy {
         return _swapFromWithAmount(_from, _to, _amountIn, amountOut);
     }
 
+    function _swapTo(address _from, address _to, uint256 _amountTo) internal returns(uint256) {
+
+        address[] memory path = getTokenOutPath(_from, _to);
+
+        uint256[] memory amountIn = router.getAmountsIn(_amountTo, path);
+        
+        uint256[] memory amounts = router.swapTokensForExactTokens(
+            _amountTo, amountIn[0], path, address(this), block.timestamp);
+
+        return amounts[amounts.length - 1];
+    }
+
     function getTokenOutPath(address _tokenIn, address _tokenOut) internal view returns (address[] memory _path) {
         bool isWeth = _tokenIn == weth || _tokenOut == weth;
         _path = new address[](isWeth ? 2 : 3);
@@ -785,10 +831,48 @@ contract CaaveNew is BaseStrategy {
     }
 
     function getAaveAssets() internal view returns (address[] memory assets) {
-        assets = new address[](3);
+        assets = new address[](4);
         assets[0] = aWant;
         assets[1] = varWbtc;
         assets[2] = varWeth;
+        assets[3] = varUsdt;
+    }
+
+    function repayAll() internal {
+        uint256 shares = balanceOfToken(crvToken);
+        if(shares == 0) {
+            return;
+        }
+
+        uint256 usdtOwed = balanceOfToken(varUsdt);
+        uint256 wbtcOwed = balanceOfToken(varWbtc);
+        uint256 wethOwed = balanceOfToken(varWeth);
+        
+        uint256[3] memory amounts;
+        
+        amounts[usdtIndex] = usdtOwed.div(2); //.mul(DENOMINATOR.sub(slippageProtectionOut)).div(DENOMINATOR);
+        amounts[wbtcIndex] = wbtcOwed;
+        amounts[wethIndex] = wethOwed;
+
+        crvPool.remove_liquidity(shares, amounts);
+
+        _repay(wbtc, wbtcOwed);
+        _repay(weth, wethOwed);
+
+        uint256 usdtBal = balanceOfToken(usdt);
+        if(usdtBal < usdtOwed) {
+            uint256 diff = usdtOwed.sub(usdtBal);
+
+            //check if we have enough available want from previous rewards claimed
+            if(balanceOfToken(address(want)) < diff.add(1)) {
+                _withdrawCollateral(diff.mul(2));
+            }
+
+            _swapTo(address(want), usdt, diff);
+
+        }
+        _repay(usdt, usdtOwed);
+        
     }
 
     function liquidateAllPositions() internal override returns (uint256) {
@@ -797,31 +881,22 @@ contract CaaveNew is BaseStrategy {
         disposeCrv();
         disposeAave();
         
-        uint256 shares = balanceOfToken(crvToken);
+        repayAll();
 
-        uint256 wbtcOwed = balanceOfToken(varWbtc);
-        uint256 wethOwed = balanceOfToken(varWeth);
-        uint256[3] memory amounts;
-        //adjust the want for any slippage to make sure we get the amound of debt we have owed
-        amounts[wantIndex] = aThird(toWant(shares)).mul(DENOMINATOR.sub(slippageProtectionOut)).div(DENOMINATOR);
-        amounts[wbtcIndex] = wbtcOwed;
-        amounts[wethIndex] = wethOwed;
-
-        crvPool.remove_liquidity(shares, amounts);
-
-        _repay(wbtc, wbtcOwed);
-        _repay(weth, wethOwed);
-        
         _withdrawCollateral(balanceOfToken(aWant));
 
         //run check to swap back anyt extra that we swapped to wbtc/weth
         uint256 _wbtcB = balanceOfToken(wbtc);
         if (_wbtcB > 0) {
-            _crvSwapFrom(wbtc, address(want), _wbtcB);
+            _swapFrom(wbtc, address(want), _wbtcB);
         }
         uint256 _wethB = balanceOfToken(weth);
         if (_wethB > 0) {
-            _crvSwapFrom(weth, address(want), _wethB);
+            _swapFrom(weth, address(want), _wethB);
+        } 
+        uint256 _usdtB = balanceOfToken(usdt);
+        if(_usdtB > 0) {
+            _swapFrom(usdt, address(want), _usdtB);
         }
 
         return want.balanceOf(address(this));
@@ -852,79 +927,31 @@ contract CaaveNew is BaseStrategy {
         uint256 desiredBorrows = getBorrowFromDeposit(deposits);
 
         uint256 diff = borrows.sub(desiredBorrows);
-        //multiply the difference by 1.2 to get what we need to add to bring back to target
-        diff = diff.add(diff.mul(2000).div(DENOMINATOR));
 
-        uint256 shares = toShares(diff);
+        deleverage(diff.mul(DENOMINATOR).div(curveMultiplier));
 
-        //withdraw from that gauge
-        gauge.withdraw(shares);
-
-        //1/3 of thecurve balance in dollars
-        uint256 dollars = aThird(diff);
-
-        //get min to be recieved
-        uint256[3] memory amounts;
-        amounts[wantIndex] = dollars.mul(DENOMINATOR.sub(slippageProtectionOut)).div(DENOMINATOR);
-        amounts[wbtcIndex] = wantToBtc(dollars).mul(DENOMINATOR.sub(slippageProtectionOut)).div(DENOMINATOR);
-        amounts[wethIndex] = wantToEth(dollars).mul(DENOMINATOR.sub(slippageProtectionOut)).div(DENOMINATOR);
-
-        crvPool.remove_liquidity(shares, amounts);
-
-        _repay(wbtc, balanceOfToken(wbtc));
-        _repay(weth, balanceOfToken(weth));
-
-        _depositCollateral(
-            Math.min(
-                balanceOfToken(address(want)),
-                dollars
-            ));
     }
 
     function rebalanceUp(uint256 deposits, uint256 borrows) internal {
         uint256 desiredBorrows = getBorrowFromDeposit(deposits);
 
-        uint256 diff = desiredBorrows.sub(borrows);
-        //multiply the difference by 1.2 to get what we need to add to bring back to target
-        diff = diff.add(diff.mul(2000).div(DENOMINATOR));
-        uint256 dollars = aThird(diff);
+        //calc desired deposits based on borrows
+        uint256 desiredDeposits = getDepositFromBorrow(borrows);
 
-        uint256 wantPulled = _withdrawCollateral(dollars);
-        uint256 wbtcDeposit = _borrow(wbtc, wantToBtc(dollars));
-        uint256 wethDeposit = _borrow(weth, wantToEth(dollars));
-
-        uint256 expectedOut = toShares(diff);
-   
-        uint256 maxSlip = expectedOut.mul(DENOMINATOR.sub(slippageProtectionIn)).div(DENOMINATOR);
-
-        uint256[3] memory amounts;
-        amounts[wantIndex] = wantPulled;
-        amounts[wbtcIndex] = wbtcDeposit;
-        amounts[wethIndex] = wethDeposit;
-
-        crvPool.add_liquidity(amounts, maxSlip);
-
-        gauge.deposit(balanceOfToken(crvToken));
+        //sub from total deposits
+        //leverage the diff
+        uint256 toLeverage = deposits.sub(desiredDeposits);
+        
+        //levereage as normal
+        leverage(0, toLeverage);
+    
     }
 
     function prepareMigration(address _newStrategy) internal override {
         gauge.withdraw(gauge.balanceOf(address(this)), true);
         claimAaveRewards();
         
-        uint256 shares = balanceOfToken(crvToken);
-
-        uint256 wbtcOwed = balanceOfToken(varWbtc);
-        uint256 wethOwed = balanceOfToken(varWeth);
-        uint256[3] memory amounts;
-        //adjust the want for any slippage to make sure we get the amound of debt we have owed
-        amounts[wantIndex] = aThird(toWant(shares)).mul(DENOMINATOR.sub(slippageProtectionOut)).div(DENOMINATOR);
-        amounts[wbtcIndex] = wbtcOwed;
-        amounts[wethIndex] = wethOwed;
-
-        crvPool.remove_liquidity(shares, amounts);
-
-        _repay(wbtc, wbtcOwed);
-        _repay(weth, wethOwed);
+        repayAll();
         
         uint256 _crvB = balanceOfToken(crv);
         if (_crvB > 0) {
@@ -937,11 +964,15 @@ contract CaaveNew is BaseStrategy {
         //run check to swap back anyt extra that we swapped to wbtc/weth
         uint256 _wbtcB = balanceOfToken(wbtc);
         if (_wbtcB > 0) {
-            _crvSwapFrom(wbtc, address(want), _wbtcB);
+            _swapFrom(wbtc, address(want), _wbtcB);
         }
         uint256 _wethB = balanceOfToken(weth);
         if (_wethB > 0) {
-            _crvSwapFrom(weth, address(want), _wethB);
+            _swapFrom(weth, address(want), _wethB);
+        }
+        uint256 _usdtB = balanceOfToken(usdt);
+        if(_usdtB > 0) {
+            _swapFrom(usdt, address(want), _usdtB);
         }
 
         IERC20(aWant).transfer(_newStrategy, balanceOfToken(aWant));
@@ -949,7 +980,7 @@ contract CaaveNew is BaseStrategy {
 
 
     function protectedTokens() internal view override returns (address[] memory) {
-        address[] memory protected = new address[](8);
+        address[] memory protected = new address[](10);
         protected[0] = crvToken;
         protected[1] = crv;
         protected[2] = aave;
@@ -958,6 +989,8 @@ contract CaaveNew is BaseStrategy {
         protected[5] = aWant;
         protected[6] = varWbtc;
         protected[7] = varWeth;
+        protected[8] = usdt;
+        protected[9] = varUsdt;
 
         return protected;
     }
@@ -978,15 +1011,19 @@ contract CaaveNew is BaseStrategy {
     //manual withdraw incase needed
     //@param _amount in crvTokens
     function manualWithdraw(uint256 _amount) external onlyStrategist {
-        crvPool.remove_liquidity_one_coin(_amount, wantIndex, 1);
+        crvPool.remove_liquidity_one_coin(_amount, usdtIndex, 1);
     } 
-
+ 
     function manualRepay(uint256 _amount, address _toRepay) external onlyStrategist {
         _repay(_toRepay, _amount);
     }
 
     function manualSwap(address _from, address _to, uint256 _amount) external onlyStrategist {
-        _crvSwapFrom(_from, _to, _amount);
+        _swapFrom(_from, _to, _amount);
+    }
+
+    function manualAaveWithdraw(uint256 _amount) external onlyStrategist {
+        _withdrawCollateral(_amount);
     }
 
 }
