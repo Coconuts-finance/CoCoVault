@@ -29,7 +29,7 @@ contract Caave is BaseStrategy {
     using Address for address;
     using SafeMath for uint256;
 
-    IUniswapV2Router02 router;
+    IUniswapV2Router02 router = IUniswapV2Router02(0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D);
 
     //aave Contracts
     ILendingPool public lendingPool; //0x7d2768dE32b0b80b7a3454c06BdAc94A69DDc7A9
@@ -100,21 +100,19 @@ contract Caave is BaseStrategy {
         address _vault,
         address _lendingPool,
         address _crvPool,
-        address _gauge,
-        address _router
+        address _gauge
     ) public BaseStrategy(_vault) {
-        _initializeThis(_lendingPool, _crvPool, _gauge, _router);
+        _initializeThis(_lendingPool, _crvPool, _gauge);
     }
 
     function _initializeThis(
         address _lendingPool,
         address _crvPool,
-        address _gauge,
-        address _router
+        address _gauge
     ) internal {
         setCrvPool(_crvPool);
         setGauge(_gauge);
-        setRouter(_router);
+        approveRouter();
         setLendingPool(_lendingPool);
         
          // Set aave tokens
@@ -169,15 +167,13 @@ contract Caave is BaseStrategy {
         gauge = IGauge(_gauge);
     }
 
-    function setRouter(address _router) internal {
+    function approveRouter() internal {
         want.safeApprove(_router, type(uint256).max);
         IERC20(aave).safeApprove(_router, type(uint256).max);
         IERC20(crv).safeApprove(_router, type(uint256).max);
         IERC20(usdt).safeApprove(_router, type(uint256).max);
         IERC20(wbtc).safeApprove(_router, type(uint256).max);
         IERC20(weth).safeApprove(_router, type(uint256).max);
-
-        router = IUniswapV2Router02(_router);
     }
 
     function setLendingPool(address _pool) internal {
@@ -187,26 +183,6 @@ contract Caave is BaseStrategy {
         IERC20(usdt).safeApprove(_pool, type(uint256).max);
 
         lendingPool = ILendingPool(_pool);
-    }
-
-    function updateRouter(address _router) external onlyAuthorized {
-        require(_router != address(0), "Need real address");
-
-        //decrease allowances
-        uint256 _allowance = want.allowance(address(this), address(router));
-        want.safeDecreaseAllowance(address(router), _allowance);
-        _allowance = IERC20(aave).allowance(address(this), address(router));
-        IERC20(aave).safeDecreaseAllowance(address(router), _allowance);
-        _allowance = IERC20(crv).allowance(address(this), address(router));
-        IERC20(crv).safeDecreaseAllowance(address(router), _allowance);
-        _allowance = IERC20(usdt).allowance(address(this), address(router));
-        IERC20(usdt).safeDecreaseAllowance(address(router), _allowance);
-        _allowance = IERC20(wbtc).allowance(address(this), address(router));
-        IERC20(wbtc).safeDecreaseAllowance(address(router), _allowance);
-        _allowance = IERC20(weth).allowance(address(this), address(router));
-        IERC20(weth).safeDecreaseAllowance(address(router), _allowance);
-
-        setRouter(_router);
     }
 
     function updateMaxSingleInvest(uint256 _maxSingleInvest) external onlyAuthorized {
@@ -982,25 +958,25 @@ contract Caave is BaseStrategy {
     }
 
     //manual withdraw incase needed
-    function manualUnstake(uint256 _amount) external onlyStrategist {
+    function manualUnstake(uint256 _amount) external onlyEmergencyAuthorized {
         gauge.withdraw(_amount);
     }
 
     //manual withdraw incase needed
-    //@param _amount in crvTokens
-    function manualWithdraw(uint256 _amount) external onlyStrategist {
+    ///@param _amount in crvTokens
+    function manualWithdraw(uint256 _amount) external onlyEmergencyAuthorized {
         crvPool.remove_liquidity_one_coin(_amount, usdtIndex, 1);
     } 
  
-    function manualRepay(uint256 _amount, address _toRepay) external onlyStrategist {
+    function manualRepay(uint256 _amount, address _toRepay) external onlyEmergencyAuthorized {
         _repay(_toRepay, _amount);
     }
 
-    function manualSwap(address _from, address _to, uint256 _amount) external onlyStrategist {
+    function manualSwap(address _from, address _to, uint256 _amount) external onlyEmergencyAuthorized {
         _swapFrom(_from, _to, _amount);
     }
 
-    function manualAaveWithdraw(uint256 _amount) external onlyStrategist {
+    function manualAaveWithdraw(uint256 _amount) external onlyEmergencyAuthorized {
         _withdrawCollateral(_amount);
     }
 
